@@ -1,57 +1,44 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+// ── Interface ─────────────────────────────────────
 export interface IUser extends Document {
-  phone: string;
-  name: string;
-  role: 'customer' | 'technician' | 'admin';
+  phone:             string;
+  name:              string;
+  role:              'customer' | 'technician' | 'admin';
   isProfileComplete: boolean;
-  isActive: boolean;
-  savedAddresses: {
-    label: string;
-    address: string;
-    area: string;
-    pincode: string;
-  }[];
-  createdAt: Date;
-  lastLoginAt: Date;
+  isActive:          boolean;
+  lastLoginAt?:      Date;
+  createdAt:         Date;
+  updatedAt:         Date;
 }
 
-
+// ── Schema ────────────────────────────────────────
 const UserSchema = new Schema<IUser>(
   {
     phone: {
-      type: String,
+      type:     String,
       required: true,
-      unique: true,
-      index: true,
-      trim: true,
+      unique:   true,
+      trim:     true,
     },
     name: {
-      type: String,
+      type:    String,
       default: '',
-      trim: true,
+      trim:    true,
     },
     role: {
-      type: String,
-      enum: ['customer', 'technician', 'admin'],
+      type:    String,
+      enum:    ['customer', 'technician', 'admin'],
       default: 'customer',
     },
     isProfileComplete: {
-      type: Boolean,
+      type:    Boolean,
       default: false,
     },
     isActive: {
-      type: Boolean,
+      type:    Boolean,
       default: true,
     },
-    savedAddresses: [
-      {
-        label:   { type: String },
-        address: { type: String },
-        area:    { type: String },
-        pincode: { type: String },
-      },
-    ],
     lastLoginAt: {
       type: Date,
     },
@@ -61,4 +48,10 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
+// ── Indexes ───────────────────────────────────────
+UserSchema.index({ phone: 1 });
+UserSchema.index({ role: 1 });
+UserSchema.index({ isActive: 1 });
+
+// ── Model ─────────────────────────────────────────
 export const User = mongoose.model<IUser>('User', UserSchema);
