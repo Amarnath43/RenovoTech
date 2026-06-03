@@ -2,78 +2,74 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // ── Symptom Interface ─────────────────────────────
 export interface ISymptom {
-  label: string;
+  label:       string;
   description: string;
-  isActive: boolean;
+  isActive:    boolean;
 }
 
 // ── Interface ─────────────────────────────────────
 export interface IService extends Document {
-  name: string;
-  slug: string;
-  icon: string;
-  description: string;
-  estimatedTime: string;
-  warranty: string;
-  symptoms: ISymptom[];
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  name:       string;
+  slug:       string;
+  image:      string;
+  repairTime: number;   
+  warranty:   number;   
+  symptoms:   ISymptom[];
+  isActive:   boolean;
+  createdAt:  Date;
+  updatedAt:  Date;
 }
 
 // ── Schema ────────────────────────────────────────
 const ServiceSchema = new Schema<IService>(
   {
     name: {
-      type: String,
+      type:     String,
       required: true,
-      unique: true,
-      trim: true,
+      unique:   true,
+      trim:     true,
     },
     slug: {
-      type: String,
-      required: true,
-      unique: true,
+      type:      String,
+      required:  true,
+      unique:    true,
       lowercase: true,
-      trim: true,
+      trim:      true,
     },
-    icon: {
-      type: String,
+    image: {
+      type:    String,
       default: '',
     },
-    description: {
-      type: String,
-      default: '',
-      trim: true,
-    },
-    estimatedTime: {
-      type: String,
-      default: '',
+    repairTime: {
+      type:    Number,
+      default: 60,      // ← 60 minutes
+      min:     0,
     },
     warranty: {
-      type: String,
-      default: '',
+      type:    Number,
+      default: 90,      // ← 90 days
+      min:     0,
     },
     symptoms: [
       {
         label: {
-          type: String,
+          type:     String,
           required: true,
-          trim: true,
+          trim:     true,
         },
         description: {
-          type: String,
+          type:    String,
           default: '',
-          trim: true,
+          trim:    true,
         },
         isActive: {
-          type: Boolean,
+          type:    Boolean,
           default: true,
         },
       },
     ],
     isActive: {
-      type: Boolean,
+      type:    Boolean,
       default: true,
     },
   },

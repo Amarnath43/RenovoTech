@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { RefreshToken } from '../models/RefreshToken.js';
@@ -25,17 +26,17 @@ export const generateTokens = (payload: {
 
 // ── Save Refresh Token ────────────────────────────
 export const saveRefreshToken = async (
-  userId: string,
+  userId:       string,
   refreshToken: string,
-  ipAddress: string,
-  deviceInfo: string,
+  ipAddress:    string,
+  deviceInfo:   string,
 ): Promise<void> => {
   const tokenHash = await bcrypt.hash(refreshToken, 10);
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   await RefreshToken.create({
     userId,
-    tokenHash,             
+    tokenHash,
     ipAddress,
     deviceInfo,
     expiresAt,
@@ -45,10 +46,13 @@ export const saveRefreshToken = async (
 
 // ── Rotate Refresh Token ──────────────────────────
 export const rotateRefreshToken = async (
-  token: string,
-  ipAddress: string,
+  token:      string,
+  ipAddress:  string,
   deviceInfo: string,
 ): Promise<{ accessToken: string; refreshToken: string } | null> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     // 1. verify token signature
     const decoded = jwt.verify(
@@ -57,55 +61,77 @@ export const rotateRefreshToken = async (
     ) as { id: string; role: string; phone: string };
 
     // 2. find all tokens for this user
-    const storedTokens = await RefreshToken.find({ userId: decoded.id });
-    if (!storedTokens.length) return null;
+    const storedTokens = await RefreshToken.find(
+      { userId: decoded.id },
+      null,
+      { session }
+    );
+    if (!storedTokens.length) {
+      await session.abortTransaction();
+      return null;
+    }
 
     // 3. find matching token
     let matchedToken = null;
     for (const stored of storedTokens) {
-      const isMatch = await bcrypt.compare(token, stored.tokenHash); // ← tokenHash
+      const isMatch = await bcrypt.compare(token, stored.tokenHash);
       if (isMatch) { matchedToken = stored; break; }
     }
-    if (!matchedToken) return null;
+    if (!matchedToken) {
+      await session.abortTransaction();
+      return null;
+    }
 
-    // 4. update lastUsedAt before deleting
-    await RefreshToken.findByIdAndUpdate(matchedToken._id, {
-      lastUsedAt: new Date(),
-    });
+    // 4. delete old token
+    await RefreshToken.findByIdAndDelete(
+      matchedToken._id,
+      { session }
+    );
 
-    // 5. delete old token → rotation
-    await RefreshToken.findByIdAndDelete(matchedToken._id);
-
-    // 6. generate new tokens
+    // 5. generate new tokens
     const payload = {
-      id: decoded.id,
-      role: decoded.role,
+      id:    decoded.id,
+      role:  decoded.role,
       phone: decoded.phone,
     };
     const tokens = generateTokens(payload);
 
-    // 7. save new refresh token
-    await saveRefreshToken(
-      decoded.id,
-      tokens.refreshToken,
-      ipAddress,
-      deviceInfo,
+    // 6. create new refresh token
+    const tokenHash = await bcrypt.hash(tokens.refreshToken, 10);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await RefreshToken.create(
+      [{
+        userId:     decoded.id,
+        tokenHash,
+        ipAddress,
+        deviceInfo,
+        expiresAt,
+        lastUsedAt: new Date(),
+      }],
+      { session }
     );
 
+    // 7. commit
+    await session.commitTransaction();
     return tokens;
+
   } catch {
+    await session.abortTransaction();
     return null;
+  } finally {
+    session.endSession();
   }
 };
 
 // ── Clear Refresh Token (Single Device Logout) ────
 export const clearRefreshToken = async (
-  token: string,
+  token:  string,
   userId: string,
 ): Promise<void> => {
   const storedTokens = await RefreshToken.find({ userId });
   for (const stored of storedTokens) {
-    const isMatch = await bcrypt.compare(token, stored.tokenHash); // ← tokenHash
+    const isMatch = await bcrypt.compare(token, stored.tokenHash);
     if (isMatch) {
       await RefreshToken.findByIdAndDelete(stored._id);
       break;
