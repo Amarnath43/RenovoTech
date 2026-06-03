@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { createError } from '../utils/errorHandler.js';
+import { createError } from './utils/errorHandler.js';
 
-// ── Extend Request to include user ────────────────
+// ── Extend Request ────────────────────────────────
 export interface AuthRequest extends Request {
   user?: {
     id: string;
@@ -11,19 +11,18 @@ export interface AuthRequest extends Request {
   };
 }
 
-// ── Verify JWT Token ──────────────────────────────
+// ── Verify Token from Cookie ──────────────────────
 export const verifyToken = (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
-  const authHeader = req.headers.authorization;
+  // read from cookie instead of header
+  const token = req.cookies?.accessToken;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next(createError('No token provided', 401));
+  if (!token) {
+    return next(createError('Not authenticated', 401));
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = jwt.verify(
@@ -34,7 +33,8 @@ export const verifyToken = (
     req.user = decoded;
     next();
   } catch {
-    next(createError('Invalid or expired token', 401));
+    // access token expired → let refresh token handle it
+    return next(createError('Token expired', 401));
   }
 };
 
@@ -46,3 +46,20 @@ export const requireRole = (...roles: string[]) =>
     }
     next();
   };
+
+// ── Cookie Options ────────────────────────────────
+export const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',  // HTTPS only in prod
+  sameSite: 'strict' as const,
+};
+
+export const accessTokenCookieOptions = {
+  ...cookieOptions,
+  maxAge: 15 * 60 * 1000,                        // 15 minutes
+};
+
+export const refreshTokenCookieOptions = {
+  ...cookieOptions,
+  maxAge: 7 * 24 * 60 * 60 * 1000,              // 7 days
+};
