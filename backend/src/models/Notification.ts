@@ -1,29 +1,30 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 // ── Types ─────────────────────────────────────────
-export type NotificationType   = 'whatsapp' | 'email';
+export type NotificationType = 'whatsapp' | 'email';
 export type NotificationStatus = 'sent' | 'failed' | 'pending';
-export type NotificationEvent  =
+export type NotificationEvent =
   | 'booking_confirmed'
   | 'pickup_scheduled'
   | 'device_picked_up'
   | 'estimate_sent'
   | 'repair_completed'
   | 'out_for_delivery'
-  | 'completed';
+  | 'completed'
+  | 'customer_rejected';
 
 // ── Interface ─────────────────────────────────────
 export interface INotification extends Document {
-  orderId:   mongoose.Types.ObjectId;
-  userId:    mongoose.Types.ObjectId;
-  type:      NotificationType;
-  event:     NotificationEvent;
+  orderId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  type: NotificationType;
+  event: NotificationEvent;
   recipient: string;
-  message:   string;
-  status:    NotificationStatus;
-  retries:   number;
-  error?:    string;
-  sentAt?:   Date;
+  message: string;
+  status: NotificationStatus;
+  retries: number;
+  error?: string;
+  sentAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,25 +33,25 @@ export interface INotification extends Document {
 const NotificationSchema = new Schema<INotification>(
   {
     orderId: {
-      type:     Schema.Types.ObjectId,
-      ref:      'Order',
+      type: Schema.Types.ObjectId,
+      ref: 'Order',
       required: true,
-      index:    true,
+      index: true,
     },
     userId: {
-      type:     Schema.Types.ObjectId,
-      ref:      'User',
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
-      index:    true,
+      index: true,
     },
     type: {
-      type:     String,
-      enum:     ['whatsapp', 'email'],
+      type: String,
+      enum: ['whatsapp', 'email'],
       required: true,
     },
     event: {
-      type:     String,
-      enum:     [
+      type: String,
+      enum: [
         'booking_confirmed',
         'pickup_scheduled',
         'device_picked_up',
@@ -58,25 +59,26 @@ const NotificationSchema = new Schema<INotification>(
         'repair_completed',
         'out_for_delivery',
         'completed',
+        'customer_rejected'
       ],
       required: true,
     },
     recipient: {
-      type:     String,
+      type: String,
       required: true,
-      trim:     true,
+      trim: true,
     },
     message: {
-      type:     String,
+      type: String,
       required: true,
     },
     status: {
-      type:    String,
-      enum:    ['sent', 'failed', 'pending'],
+      type: String,
+      enum: ['sent', 'failed', 'pending'],
       default: 'pending',
     },
     retries: {
-      type:    Number,
+      type: Number,
       default: 0,
     },
     error: {
