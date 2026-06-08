@@ -49,7 +49,7 @@ export const createOrder = async (
   const session = await mongoose.startSession();
   session.startTransaction();
 
-  let order: IOrder;
+  let order!: IOrder;
 
   try {
     // 1. get settings
@@ -61,7 +61,30 @@ export const createOrder = async (
       throw createError('Pickup & Drop service is currently unavailable', 503);
     }
 
-    // 3. check slot availability atomically
+    // 3. validate pickup date
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const pickup = new Date(input.pickupDate);
+    pickup.setUTCHours(0, 0, 0, 0);
+
+    if (pickup < today) {
+      throw createError('Pickup date cannot be in the past', 400);
+    }
+
+    const maxDate = new Date(today);
+    maxDate.setUTCDate(today.getUTCDate() + settings.calendarDays);
+    if (pickup > maxDate) {
+      throw createError(`Pickup date must be within ${settings.calendarDays} days from today`, 400);
+    }
+
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = days[pickup.getUTCDay()];
+    if (!settings.workingDays.includes(dayName)) {
+      throw createError('Selected date is not a working day', 400);
+    }
+
+    // 4. check slot availability atomically
     let slotCounter;
     try {
       slotCounter = await SlotCounter.findOneAndUpdate(
@@ -90,7 +113,6 @@ export const createOrder = async (
       throw createError('Selected slot is full. Please choose another slot.', 409);
     }
 
-    // 4. calculate total amount
     const estimatedAmount = input.services.reduce(
       (sum, s) => sum + s.price, 0
     );
