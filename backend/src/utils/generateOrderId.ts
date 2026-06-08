@@ -1,8 +1,17 @@
-// import { Order } from '../models/Order.js';
-// export const generateOrderId = async (): Promise<string> => {
-//   const year = new Date().getFullYear();
-//  const count = await Order.countDocuments();
-//   const seq = String(count + 1).padStart(5, '0');
-//   return `RT-${year}-${seq}`;
-// };
+import mongoose from 'mongoose';
+import { Settings } from '../models/Settings.js';
 
+export const generateOrderId = async (
+  session?: mongoose.ClientSession,
+): Promise<string> => {
+  const year = new Date().getFullYear();
+
+  const settings = await Settings.findOneAndUpdate(
+    {},
+    { $inc: { orderSequence: 1 } },
+    { new: true, upsert: true, session }
+  );
+
+  const seq = String(settings!.orderSequence).padStart(5, '0');
+  return `RT-${year}-${seq}`;
+};

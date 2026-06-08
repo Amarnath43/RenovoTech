@@ -3,21 +3,23 @@ import mongoose, { Schema, Document } from 'mongoose';
 // ── Interface ─────────────────────────────────────
 export interface ISettings extends Document {
   // ── Service Types ────────────────────────────
-  storeVisitEnabled:      boolean;
-  pickupDropEnabled:      boolean;
+  storeVisitEnabled: boolean;
+  pickupDropEnabled: boolean;
   // ── Pickup Slots ─────────────────────────────
   pickupSlotDurationMins: number;
-  maxPickupsPerSlot:      number;
-  workingHoursStart:      string;
-  workingHoursEnd:        string;
-  calendarDays:           number;
-  workingDays:            string[];
+  maxPickupsPerSlot: number;
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  calendarDays: number;
+  workingDays: string[];
   // ── Payment ──────────────────────────────────
-  bookingFee:             number;
-  bookingFeeEnabled:      boolean;
+  bookingFee: number;
+  bookingFeeEnabled: boolean;
   // ── Slot Hold ────────────────────────────────
-  createdAt:              Date;
-  updatedAt:              Date;
+  createdAt: Date;
+  updatedAt: Date;
+
+  orderSequence: number;
 }
 
 // ── Schema ────────────────────────────────────────
@@ -25,36 +27,36 @@ const SettingsSchema = new Schema<ISettings>(
   {
     // ── Service Types ────────────────────────────
     storeVisitEnabled: {
-      type:    Boolean,
+      type: Boolean,
       default: false,       // ← disabled until store is ready
     },
     pickupDropEnabled: {
-      type:    Boolean,
+      type: Boolean,
       default: true,        // ← enabled from day one
     },
     // ── Pickup Slots ─────────────────────────────
     pickupSlotDurationMins: {
-      type:    Number,
+      type: Number,
       default: 60,          // ← 1 hour slots
     },
     maxPickupsPerSlot: {
-      type:    Number,
+      type: Number,
       default: 5,           // ← 5 pickups per slot
     },
     workingHoursStart: {
-      type:    String,
+      type: String,
       default: '09:00',     // ← 9:00 AM
     },
     workingHoursEnd: {
-      type:    String,
+      type: String,
       default: '19:00',     // ← 7:00 PM
     },
     calendarDays: {
-      type:    Number,
+      type: Number,
       default: 15,          // ← 15 days calendar
     },
     workingDays: {
-      type:    [String],
+      type: [String],
       default: [
         'monday',
         'tuesday',
@@ -62,16 +64,21 @@ const SettingsSchema = new Schema<ISettings>(
         'thursday',
         'friday',
         'saturday',
-      ],                    // ← Sunday closed
+        'sunday'
+      ],                    
     },
     // ── Payment ──────────────────────────────────
     bookingFee: {
-      type:    Number,
+      type: Number,
       default: 99,          // ← ₹99 booking fee
     },
     bookingFeeEnabled: {
-      type:    Boolean,
+      type: Boolean,
       default: true,        // ← fee enabled
+    },
+    orderSequence: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }

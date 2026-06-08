@@ -15,7 +15,9 @@ export type OrderStatus =
   | 'quality_check'
   | 'ready_for_drop'
   | 'out_for_delivery'
-  | 'completed';
+  | 'completed'
+  | 'cancelled';
+
 
 export type CustomerApproval = 'pending' | 'approved' | 'rejected';
 export type PaymentStatus    = 'pending' | 'partial'  | 'paid';
@@ -213,6 +215,7 @@ const OrderSchema = new Schema<IOrder>(
         'ready_for_drop',
         'out_for_delivery',
         'completed',
+        'cancelled'
       ],
       default: 'booked',
       index:   true,

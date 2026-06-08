@@ -23,6 +23,7 @@ export type NotificationEvent =
     | 'repair_completed'
     | 'out_for_delivery'
     | 'completed'
+    | 'customer_approved'
     | 'customer_rejected';
 
 // ── Message Template ──────────────────────────────
@@ -51,6 +52,9 @@ export const getTemplate = (
 
         completed:
             `Hi ${data.name}! 🎊 Your device has been delivered.\nOrder ID: ${data.orderId}\nThank you for choosing RenovoTech!`,
+        customer_approved:
+            `Hi ${data.name}! ✅ You've approved the repair estimate.\nOrder ID: ${data.orderId}\nOur technician will begin the repair shortly.`,
+
         customer_rejected:
             `Hi ${data.name}! We've received your decision to cancel the repair.\nOrder ID: ${data.orderId}\nYour device will be returned to you shortly.`,
     };
