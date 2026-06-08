@@ -244,10 +244,7 @@ export const submitEstimate = async (
   amount: number,
   notes: string,
 ): Promise<IOrder> => {
-
-
-  try {
-    const order = await Order.findOneAndUpdate(
+  const order = await Order.findOneAndUpdate(
     {
       _id: orderId,
       status: 'diagnosis_in_progress',
@@ -266,41 +263,33 @@ export const submitEstimate = async (
           updatedBy: new mongoose.Types.ObjectId(technicianId),
           note: `Estimate submitted: ₹${amount}`,
           timestamp: new Date(),
-        }
-      }
-    },
-      {
-        new: true
-      })
-
-    if (!order) throw createError('Order not found or not in diagnosis_in_progress state', 409);
-
-    logger.info(`[ORDER] Estimate sent: ${order.orderId} — ₹${amount}`);
-
-    // notify customer (outside transaction)
-    const serviceNames = order.services
-      .map(s => s.serviceName)
-      .join(', ');
-
-    await notifyCustomer(
-      order._id as mongoose.Types.ObjectId,
-      'estimate_sent',
-      {
-        orderId: order.orderId,
-        model: order.modelName,
-        services: serviceNames,
-        amount: amount.toString(),
+        },
       },
-    );
+    },
+    { new: true },
+  );
 
-    return order;
+  if (!order) throw createError('Order not found or not in diagnosis_in_progress state', 409);
 
-  } catch (err) {
+  logger.info(`[ORDER] Estimate sent: ${order.orderId} — ₹${amount}`);
 
-    logger.error(`[ORDER] Submit estimate failed: ${err}`);
-    throw err;
-  }
+  const serviceNames = order.services.map(s => s.serviceName).join(', ');
+
+  await notifyCustomer(
+    order._id as mongoose.Types.ObjectId,
+    'estimate_sent',
+    {
+      orderId: order.orderId,
+      model: order.modelName,
+      services: serviceNames,
+      amount: amount.toString(),
+    },
+  );
+
+  return order;
 };
+
+
 
 // ── Approve / Reject Estimate ─────────────────────
 export const respondToEstimate = async (
@@ -308,66 +297,44 @@ export const respondToEstimate = async (
   customerId: string,
   action: 'approved' | 'rejected',
 ): Promise<IOrder> => {
-  try {
+  const newStatus: OrderStatus = action === 'approved'
+    ? 'customer_approved'
+    : 'customer_rejected';
 
-    const newStatus: OrderStatus = action === 'approved'
-      ? 'customer_approved'
-      : 'customer_rejected';
-
-    const order = await Order.findOneAndUpdate({
+  const order = await Order.findOneAndUpdate(
+    {
       _id: orderId,
       customerId: new mongoose.Types.ObjectId(customerId),
       customerApproval: 'pending',
     },
-      {
-        $set: {
-          customerApproval: action,
-          status: newStatus
-        },
-        $push: {
-          statusHistory: {
-            status: newStatus,
-            updatedBy: new mongoose.Types.ObjectId(customerId),
-            note: `Customer ${action} the estimate`,
-            timestamp: new Date(),
-          }
-        }
+    {
+      $set: {
+        customerApproval: action,
+        status: newStatus,
       },
-      {
-        new: true,
-      }
-    )
+      $push: {
+        statusHistory: {
+          status: newStatus,
+          updatedBy: new mongoose.Types.ObjectId(customerId),
+          note: `Customer ${action} the estimate`,
+          timestamp: new Date(),
+        },
+      },
+    },
+    { new: true },
+  );
 
-    if (!order) {
-      throw createError(
-        'Estimate already responded to or order not found',
-        409
-      );
-    }
-
-    logger.info(`[ORDER] Estimate ${action}: ${order.orderId}`);
-
-    // notify if rejected
-    if (action === 'rejected') {
-      await notifyCustomer(
-        order._id as mongoose.Types.ObjectId,
-        'customer_rejected',
-        { orderId: order.orderId },
-      );
-    }
-    else if(action === 'approved')
-     {
-      await notifyCustomer(
-        order._id as mongoose.Types.ObjectId,
-        'customer_approved',
-        { orderId: order.orderId },
-      );
-    }
-
-    return order;
-
-  } catch (err) {
-    logger.error(`[ORDER] Respond to estimate failed: ${err}`);
-    throw err;
+  if (!order) {
+    throw createError('Estimate already responded to or order not found', 409);
   }
+
+  logger.info(`[ORDER] Estimate ${action}: ${order.orderId}`);
+
+  await notifyCustomer(
+    order._id as mongoose.Types.ObjectId,
+    action === 'approved' ? 'customer_approved' : 'customer_rejected',
+    { orderId: order.orderId },
+  );
+
+  return order;
 };
