@@ -11,7 +11,9 @@ export type NotificationEvent =
   | 'repair_completed'
   | 'out_for_delivery'
   | 'completed'
-  | 'customer_rejected';
+  | 'customer_rejected'
+  | 'customer_approved'
+
 
 // ── Interface ─────────────────────────────────────
 export interface INotification extends Document {
@@ -35,14 +37,12 @@ const NotificationSchema = new Schema<INotification>(
     orderId: {
       type: Schema.Types.ObjectId,
       ref: 'Order',
-      required: true,
-      index: true,
+      required: true
     },
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true,
     },
     type: {
       type: String,

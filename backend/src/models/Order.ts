@@ -277,7 +277,6 @@ const OrderSchema = new Schema<IOrder>(
 );
 
 // ── Indexes ───────────────────────────────────────
-OrderSchema.index({ orderId: 1 });
 OrderSchema.index({ customerId: 1, createdAt: -1 });
 OrderSchema.index({ technicianId: 1, status: 1 });
 OrderSchema.index({ status: 1, createdAt: -1 });

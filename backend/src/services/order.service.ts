@@ -3,7 +3,7 @@ import { Order, OrderStatus, IOrder } from '../models/Order.js';
 import { SlotCounter } from '../models/SlotCounter.js';
 import { Settings } from '../models/Settings.js';
 import { generateOrderId } from '../utils/generateOrderId.js';
-import { notifyCustomer } from './notification.service.js';
+import { notificationQueue } from '../queues/notification.queue.js'
 import { logger } from '../utils/logger.js';
 import { createError } from '../utils/errorHandler.js';
 
@@ -167,15 +167,15 @@ export const createOrder = async (
   logger.info(`[ORDER] Created: ${order.orderId}`);
 
   // 9. notify customer (outside transaction)
-  await notifyCustomer(
-    order._id as mongoose.Types.ObjectId,
-    'booking_confirmed',
-    {
+  await notificationQueue.add('send-whatsapp', {
+    orderId: order._id.toString(),
+    event: 'booking_confirmed',
+    data: {
       orderId: order.orderId,
       date: input.pickupDate,
       slot: input.pickupSlot,
     },
-  );
+  });
 
   return order;
 };
@@ -297,16 +297,16 @@ export const submitEstimate = async (
 
   const serviceNames = order.services.map(s => s.serviceName).join(', ');
 
-  await notifyCustomer(
-    order._id as mongoose.Types.ObjectId,
-    'estimate_sent',
-    {
+  await notificationQueue.add('send-whatsapp', {
+    orderId: order._id.toString(),
+    event: 'estimate_sent',
+    data: {
       orderId: order.orderId,
       model: order.modelName,
       services: serviceNames,
       amount: amount.toString(),
     },
-  );
+  });
 
   return order;
 };
@@ -352,11 +352,11 @@ export const respondToEstimate = async (
 
   logger.info(`[ORDER] Estimate ${action}: ${order.orderId}`);
 
-  await notifyCustomer(
-    order._id as mongoose.Types.ObjectId,
-    action === 'approved' ? 'customer_approved' : 'customer_rejected',
-    { orderId: order.orderId },
-  );
+  await notificationQueue.add('send-whatsapp', {
+    orderId: order._id.toString(),
+    event: action === 'rejected' ? 'customer_rejected' : 'customer_approved',
+    data: { orderId: order.orderId },
+  });
 
   return order;
 };

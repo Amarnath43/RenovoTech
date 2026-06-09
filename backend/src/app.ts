@@ -9,6 +9,11 @@ import './config/redis.js';
 import { errorHandler } from './utils/errorHandler.js';
 import { logger } from './utils/logger.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
+import { createBullBoard }        from '@bull-board/api';
+import { BullMQAdapter }          from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter }         from '@bull-board/express';
+import { notificationQueue }      from './queues/notification.queue.js';
+import './queues/notification.worker.js';  // start worker
 
 // ── Routes ────────────────────────────────────────
 // import authRoutes           from './routes/auth.routes.js';
@@ -50,6 +55,19 @@ app.use('/api', apiRateLimiter);
 app.get('/health', (_, res) => {
   res.json({ status: 'ok', app: 'RenovoTech API' });
 });
+
+// After middleware setup, before routes
+
+// ── Bull Board ────────────────────────────────────
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+
+createBullBoard({
+  queues:        [new BullMQAdapter(notificationQueue)],
+  serverAdapter,
+});
+
+app.use('/admin/queues', serverAdapter.getRouter());
 
 // ── API Routes ────────────────────────────────────
 // app.use('/api/v1/auth',            authRoutes);

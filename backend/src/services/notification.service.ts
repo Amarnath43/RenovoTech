@@ -24,7 +24,7 @@ export type NotificationEvent =
     | 'out_for_delivery'
     | 'completed'
     | 'customer_approved'
-    | 'customer_rejected';
+    | 'customer_rejected'
 
 // ── Message Template ──────────────────────────────
 export const getTemplate = (
