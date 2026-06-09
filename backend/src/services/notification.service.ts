@@ -112,6 +112,7 @@ export const sendWhatsApp = async (
         } catch (dbErr) {
             logger.error(`[NOTIFY] Failed to log to DB: ${dbErr}`);
         }
+        throw err;
     }
 };
 
@@ -149,6 +150,7 @@ export const notifyCustomer = async (
 
     } catch (err) {
         logger.error(`[NOTIFY] notifyCustomer failed: ${err}`);
+        throw err;
     }
 };
 

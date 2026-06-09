@@ -1,5 +1,4 @@
 import {Queue} from 'bullmq'
-import redis from '../config/redis.js'
 import type { NotificationEvent } from '../services/notification.service.js'
 
 export interface NotificationJobData{
@@ -7,11 +6,16 @@ export interface NotificationJobData{
     event: NotificationEvent,
     data:Record<string, string>
 }
+const connection = {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD || undefined,
+};
 
 export const notificationQueue=new Queue<NotificationJobData>(
     'notifications',
     {
-        connection:redis,
+        connection,
         defaultJobOptions:{
             attempts:3,
             backoff:{
@@ -25,6 +29,5 @@ export const notificationQueue=new Queue<NotificationJobData>(
 )
 
 process.on('SIGTERM',async()=>{
-    await notificationQueue.close();  //Close connection to BullMQ AFTER completing current job 
-
+    await notificationQueue.close(); 
 })

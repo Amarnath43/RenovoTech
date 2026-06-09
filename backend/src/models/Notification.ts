@@ -59,7 +59,8 @@ const NotificationSchema = new Schema<INotification>(
         'repair_completed',
         'out_for_delivery',
         'completed',
-        'customer_rejected'
+        'customer_rejected',
+        'customer_approved',
       ],
       required: true,
     },

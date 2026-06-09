@@ -1,9 +1,14 @@
 import { Worker, Job } from 'bullmq';
 import mongoose from 'mongoose';
-import redis from '../config/redis.js';
 import { notifyCustomer } from '../services/notification.service.js';
 import { logger } from '../utils/logger.js';
 import type { NotificationJobData } from './notification.queue.js';
+
+const connection = {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD || undefined,
+};
 
 // ── Worker ────────────────────────────────────────
 export const notificationWorker = new Worker<NotificationJobData>(
@@ -20,7 +25,7 @@ export const notificationWorker = new Worker<NotificationJobData>(
     );
   },
   {
-    connection:  redis,
+    connection,
     concurrency: 5,
   }
 );
@@ -31,7 +36,7 @@ notificationWorker.on('completed', (job) => {
 });
 
 notificationWorker.on('failed', (job, err) => {
-  logger.error(`[WORKER] Failed — job: ${job?.id} — event: ${job?.data.event}: ${err}`);
+  logger.error(`[WORKER] Failed — job: ${job?.id} — event: ${job?.data?.event}: ${err}`);
 });
 
 notificationWorker.on('error', (err) => {
