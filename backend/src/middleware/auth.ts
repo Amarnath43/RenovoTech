@@ -1,19 +1,11 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { createError } from './utils/errorHandler.js';
+import { createError } from '../utils/errorHandler.js';
 
-// ── Extend Request ────────────────────────────────
-export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    role: string;
-    phone: string;
-  };
-}
 
 // ── Verify Token from Cookie ──────────────────────
 export const verifyToken = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -28,7 +20,7 @@ export const verifyToken = (
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
-    ) as AuthRequest['user'];
+    ) as Request['user'];
 
     req.user = decoded;
     next();
@@ -40,7 +32,7 @@ export const verifyToken = (
 
 // ── Require Specific Role ─────────────────────────
 export const requireRole = (...roles: string[]) =>
-  (req: AuthRequest, res: Response, next: NextFunction) => {
+  (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
       return next(createError('Access denied', 403));
     }
@@ -49,9 +41,18 @@ export const requireRole = (...roles: string[]) =>
 
 // ── Cookie Options ────────────────────────────────
 export const cookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',  // HTTPS only in prod
-  sameSite: 'strict' as const,
+  access: {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+    maxAge:   15 * 60 * 1000,          // 15 minutes
+  },
+  refresh: {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+    maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
+  },
 };
 
 export const accessTokenCookieOptions = {

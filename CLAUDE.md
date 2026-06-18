@@ -76,9 +76,9 @@ backend/src/
 
 **Entity hierarchy:** Brand → Series → DeviceModel → ServicePricing ← Service
 
-### Order Status Workflow (14 states)
+### Order Status Workflow (15 states)
 
-`booked` → `confirmed` → `pickup_scheduled` → `picked_up` → `diagnosed` → `awaiting_approval` → `repair_in_progress` → `repair_done` → `quality_check` → `out_for_delivery` → `delivered` → `completed` | `cancelled` | `on_hold`
+`booked` → `pickup_scheduled` → `device_picked_up` → `device_received` → `technician_assigned` → `diagnosis_in_progress` → `estimate_sent` → `customer_approved` | `customer_rejected` → `repair_in_progress` → `quality_check` → `ready_for_drop` → `out_for_delivery` → `completed` | `cancelled`
 
 ### Auth Architecture
 
