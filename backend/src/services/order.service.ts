@@ -360,3 +360,152 @@ export const respondToEstimate = async (
 
   return order;
 };
+
+
+// ── Start Diagnosis ───────────────────────────────
+export const startDiagnosis = async (
+  orderId:      string,
+  technicianId: string,
+  notes?:       string,
+): Promise<IOrder> => {
+  const order = await Order.findOneAndUpdate(
+    {
+      _id:          orderId,
+      technicianId: new mongoose.Types.ObjectId(technicianId),
+      status:       'technician_assigned',
+    },
+    {
+      $set: {
+        status:         'diagnosis_in_progress',
+        ...(notes ? { diagnosisNotes: notes } : {}),
+      },
+      $push: {
+        statusHistory: {
+          status:    'diagnosis_in_progress',
+          updatedBy: new mongoose.Types.ObjectId(technicianId),
+          note:      'Diagnosis started',
+          timestamp: new Date(),
+        },
+      },
+    },
+    { new: true },
+  );
+
+  if (!order) {
+    throw createError(
+      'Order not found, not assigned to you, or not in technician_assigned state',
+      409,
+    );
+  }
+
+  logger.info(`[ORDER] Diagnosis started: ${order.orderId}`);
+  return order;
+};
+
+
+// ── Start Repair ──────────────────────────────────
+export const startRepair = async (
+  orderId:      string,
+  technicianId: string,
+): Promise<IOrder> => {
+  const order = await Order.findOneAndUpdate(
+    {
+      _id:          orderId,
+      technicianId: new mongoose.Types.ObjectId(technicianId),
+      status:       'customer_approved',
+    },
+    {
+      $set: { status: 'repair_in_progress' },
+      $push: {
+        statusHistory: {
+          status:    'repair_in_progress',
+          updatedBy: new mongoose.Types.ObjectId(technicianId),
+          note:      'Repair started',
+          timestamp: new Date(),
+        },
+      },
+    },
+    { new: true },
+  );
+
+  if (!order) {
+    throw createError(
+      'Order not found, not assigned to you, or estimate not yet approved',
+      409,
+    );
+  }
+
+  logger.info(`[ORDER] Repair started: ${order.orderId}`);
+  return order;
+};
+
+
+// ── Complete Repair ───────────────────────────────
+export const completeRepair = async (
+  orderId:      string,
+  technicianId: string,
+  note?:        string,
+): Promise<IOrder> => {
+  const order = await Order.findOneAndUpdate(
+    {
+      _id:          orderId,
+      technicianId: new mongoose.Types.ObjectId(technicianId),
+      status:       'repair_in_progress',
+    },
+    {
+      $set: { status: 'ready_for_drop' },
+      $push: {
+        statusHistory: {
+          status:    'ready_for_drop',
+          updatedBy: new mongoose.Types.ObjectId(technicianId),
+          note:      note || 'Repair completed, ready for drop',
+          timestamp: new Date(),
+        },
+      },
+    },
+    { new: true },
+  );
+
+  if (!order) {
+    throw createError(
+      'Order not found, not assigned to you, or not in repair_in_progress state',
+      409,
+    );
+  }
+
+  logger.info(`[ORDER] Repair completed: ${order.orderId}`);
+  return order;
+};
+
+
+// ── Upload Photos ─────────────────────────────────
+export const uploadPhotos = async (
+  orderId:       string,
+  technicianId:  string,
+  beforePhotos?: string[],
+  afterPhotos?:  string[],
+): Promise<IOrder> => {
+  const update: Record<string, string[]> = {};
+  if (beforePhotos?.length) update.beforePhotos = beforePhotos;
+  if (afterPhotos?.length)  update.afterPhotos  = afterPhotos;
+
+  if (Object.keys(update).length === 0) {
+    throw createError('No photos provided', 400);
+  }
+
+  const order = await Order.findOneAndUpdate(
+    {
+      _id:          orderId,
+      technicianId: new mongoose.Types.ObjectId(technicianId),
+    },
+    { $set: update },
+    { new: true },
+  );
+
+  if (!order) {
+    throw createError('Order not found or not assigned to you', 409);
+  }
+
+  logger.info(`[ORDER] Photos uploaded: ${order.orderId}`);
+  return order;
+};

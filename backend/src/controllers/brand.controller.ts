@@ -6,7 +6,7 @@ import { ServicePricing } from '../models/ServicePricing.js';
 import { asyncHandler }   from '../utils/asyncHandler.js';
 import { createError }    from '../utils/errorHandler.js';
 
-//Helper — Services + Pricing for a Model
+// Helper — Services + Pricing for a Model
 const getModelServices = async (modelId: mongoose.Types.ObjectId | string) => {
   const pricing = await ServicePricing
     .find({ modelId, isActive: true })
@@ -37,7 +37,7 @@ const getModelServices = async (modelId: mongoose.Types.ObjectId | string) => {
   });
 };
 
-//Get All Brands
+// Get All Brands
 export const getBrands = asyncHandler(async (req, res) => {
   const brands = await Brand
     .find({ isActive: true })
@@ -47,7 +47,7 @@ export const getBrands = asyncHandler(async (req, res) => {
   res.json({ success: true, brands });
 });
 
-//Get Series by Brand Slug (+ nested models)
+// Get Series by Brand Slug (+ nested models)
 export const getSeriesByBrand = asyncHandler(async (req, res) => {
   const { brandSlug } = req.params;
 
@@ -78,39 +78,7 @@ export const getSeriesByBrand = asyncHandler(async (req, res) => {
   res.json({ success: true, series });
 });
 
-//Get Models by Brand + Series Slug (+ pricing)
-export const getModelsBySeries = asyncHandler(async (req, res) => {
-  const { brandSlug, seriesSlug } = req.params;
-
-  const brand = await Brand.findOne({ slug: brandSlug, isActive: true });
-  if (!brand) throw createError('Brand not found', 404);
-
-  const series = await Series.findOne({
-    brandId:  brand._id,
-    slug:     seriesSlug,
-    isActive: true,
-  });
-  if (!series) throw createError('Series not found', 404);
-
-  const models = await DeviceModel
-    .find({ seriesId: series._id, isActive: true })
-    .sort('displayOrder');
-
-  const result = await Promise.all(
-    models.map(async (model) => ({
-      id:           model._id,
-      name:         model.name,
-      slug:         model.slug,
-      image:        model.image,
-      displayOrder: model.displayOrder,
-      services:     await getModelServices(model._id),
-    })),
-  );
-
-  res.json({ success: true, models: result });
-});
-
-//Get Pricing/Services by Model ID
+// Get Pricing/Services by Model ID
 export const getModelPricing = asyncHandler(async (req, res) => {
   const modelId = req.params.modelId as string;
 

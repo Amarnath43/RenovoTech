@@ -30,7 +30,12 @@ export const sendOtp = asyncHandler(async (req, res) => {
 export const verifyOtp = asyncHandler(async (req, res) => {
   const { phone, otp } = req.body;
 
-  if (!phone || !otp) throw createError('Phone and OTP are required', 400);
+  if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
+    throw createError('Valid 10-digit phone number required', 400);
+  }
+  if (!otp || !/^\d{6}$/.test(otp)) {
+    throw createError('OTP must be 6 digits', 400);
+  }
 
   const result = await verifyOTP(phone, otp);
   if (!result.success) throw createError(result.message, 400);

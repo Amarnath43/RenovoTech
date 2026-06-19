@@ -55,12 +55,3 @@ export const cookieOptions = {
   },
 };
 
-export const accessTokenCookieOptions = {
-  ...cookieOptions,
-  maxAge: 15 * 60 * 1000,                        // 15 minutes
-};
-
-export const refreshTokenCookieOptions = {
-  ...cookieOptions,
-  maxAge: 7 * 24 * 60 * 60 * 1000,              // 7 days
-};

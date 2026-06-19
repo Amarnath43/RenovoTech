@@ -12,7 +12,6 @@ export type OrderStatus =
   | 'customer_approved'
   | 'customer_rejected'
   | 'repair_in_progress'
-  | 'quality_check'
   | 'ready_for_drop'
   | 'out_for_delivery'
   | 'completed'
