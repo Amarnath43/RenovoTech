@@ -12,6 +12,7 @@ import {
   getISTNowMinutes,
   isTodayIST
 } from '../utils/slotTime.js';
+import { FinalServices } from '../models/Order.js';
 
 // ── Types ─────────────────────────────────────────
 interface CreateOrderInput {
@@ -324,7 +325,7 @@ export const submitEstimate = async (
   }
 
   // 2. build finalServices with VERIFIED prices
-  const finalServices = [];
+  const finalServices: FinalServices[] = [];
 
   for (const s of inputServices) {
     if (s.serviceId) {

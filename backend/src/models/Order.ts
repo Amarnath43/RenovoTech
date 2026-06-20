@@ -47,7 +47,7 @@ export interface IStatusHistory {
 export interface FinalServices {
   serviceId: mongoose.Types.ObjectId | null;
   serviceName: string;
-  price?: number,
+  price: number,
 }
 
 // ── Order Service Interface ───────────────────────
