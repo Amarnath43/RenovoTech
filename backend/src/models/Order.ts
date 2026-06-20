@@ -19,16 +19,16 @@ export type OrderStatus =
 
 
 export type CustomerApproval = 'pending' | 'approved' | 'rejected';
-export type PaymentStatus    = 'pending' | 'partial'  | 'paid';
-export type Priority         = 'normal'  | 'urgent'   | 'vip';
+export type PaymentStatus = 'pending' | 'partial' | 'paid';
+export type Priority = 'normal' | 'urgent' | 'vip';
 
 // ── Address Interface ─────────────────────────────
 export interface IAddress {
   flatOrHouse: string;
-  area:        string;
-  city:        string;
-  state:       string;
-  pincode:     string;
+  area: string;
+  city: string;
+  state: string;
+  pincode: string;
   fullAddress: string;
   coordinates: {
     lat: number;
@@ -38,67 +38,74 @@ export interface IAddress {
 
 // ── Status History Interface ──────────────────────
 export interface IStatusHistory {
-  status:    OrderStatus;
+  status: OrderStatus;
   updatedBy: mongoose.Types.ObjectId;
-  note:      string;
+  note: string;
   timestamp: Date;
+}
+
+export interface FinalServices {
+  serviceId: mongoose.Types.ObjectId | null;
+  serviceName: string;
+  price?: number,
 }
 
 // ── Order Service Interface ───────────────────────
 export interface IOrderService {
-  serviceId:        mongoose.Types.ObjectId;
-  serviceName:      string;
-  price:            number;
+  serviceId: mongoose.Types.ObjectId;
+  serviceName: string;
+  price: number;
   selectedSymptoms: string[];
 }
 
 // ── Main Interface ────────────────────────────────
 export interface IOrder extends Document {
-  orderId:          string;
-  customerId:       mongoose.Types.ObjectId;
-  technicianId?:    mongoose.Types.ObjectId;
+  orderId: string;
+  customerId: mongoose.Types.ObjectId;
+  technicianId?: mongoose.Types.ObjectId;
   // Device
-  brandId:          mongoose.Types.ObjectId;
-  seriesId:         mongoose.Types.ObjectId;
-  modelId:          mongoose.Types.ObjectId;
-  modelName:        string;
+  brandId: mongoose.Types.ObjectId;
+  seriesId: mongoose.Types.ObjectId;
+  modelId: mongoose.Types.ObjectId;
+  modelName: string;
   // Services
-  services:         IOrderService[];
+  services: IOrderService[];
   // Pickup Details
-  pickupAddress:    IAddress;
-  contactName:      string;
-  contactPhone:     string;
-  pickupDate:       Date;
-  pickupSlot:       string;
+  pickupAddress: IAddress;
+  contactName: string;
+  contactPhone: string;
+  pickupDate: Date;
+  pickupSlot: string;
   // Status
-  status:           OrderStatus;
-  priority:         Priority;
-  statusHistory:    IStatusHistory[];
+  status: OrderStatus;
+  priority: Priority;
+  statusHistory: IStatusHistory[];
   // Technician
-  diagnosisNotes?:  string;
-  beforePhotos:     string[];
-  afterPhotos:      string[];
-  estimateSentAt?:  Date;
+  diagnosisNotes?: string;
+  beforePhotos: string[];
+  afterPhotos: string[];
+  finalServices: FinalServices[];
+  estimateSentAt?: Date;
   customerApproval: CustomerApproval;
   // Financial
-  estimatedAmount:  number;
-  finalAmount?:     number;
-  bookingFee:       number;
-  paymentStatus:    PaymentStatus;
+  estimatedAmount: number;
+  finalAmount?: number;
+  bookingFee: number;
+  paymentStatus: PaymentStatus;
   // Admin
-  adminNotes?:      string;
-  createdAt:        Date;
-  updatedAt:        Date;
+  adminNotes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ── Address Schema ────────────────────────────────
 const AddressSchema = new Schema<IAddress>(
   {
     flatOrHouse: { type: String, required: true, trim: true },
-    area:        { type: String, required: true, trim: true },
-    city:        { type: String, required: true, trim: true },
-    state:       { type: String, required: true, trim: true },
-    pincode:     { type: String, required: true, trim: true },
+    area: { type: String, required: true, trim: true },
+    city: { type: String, required: true, trim: true },
+    state: { type: String, required: true, trim: true },
+    pincode: { type: String, required: true, trim: true },
     fullAddress: { type: String, trim: true },
     coordinates: {
       lat: { type: Number, required: true },
@@ -111,9 +118,9 @@ const AddressSchema = new Schema<IAddress>(
 // ── Status History Schema ─────────────────────────
 const StatusHistorySchema = new Schema<IStatusHistory>(
   {
-    status:    { type: String, required: true },
+    status: { type: String, required: true },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    note:      { type: String, default: '' },
+    note: { type: String, default: '' },
     timestamp: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -122,10 +129,20 @@ const StatusHistorySchema = new Schema<IStatusHistory>(
 // ── Order Service Schema ──────────────────────────
 const OrderServiceSchema = new Schema<IOrderService>(
   {
-    serviceId:        { type: Schema.Types.ObjectId, ref: 'Service', required: true },
-    serviceName:      { type: String, required: true },
-    price:            { type: Number, required: true },
+    serviceId: { type: Schema.Types.ObjectId, ref: 'Service', required: true },
+    serviceName: { type: String, required: true },
+    price: { type: Number, required: true },
     selectedSymptoms: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
+// ── Final Services Schema ─────────────────────────
+const FinalServicesSchema = new Schema<FinalServices>(
+  {
+    serviceId: { type: Schema.Types.ObjectId, ref: 'Service', default: null },
+    serviceName: { type: String, required: true },
+    price: { type: Number },
   },
   { _id: false }
 );
@@ -134,72 +151,72 @@ const OrderServiceSchema = new Schema<IOrderService>(
 const OrderSchema = new Schema<IOrder>(
   {
     orderId: {
-      type:     String,
-      unique:   true,
+      type: String,
+      unique: true,
       required: true,
     },
     customerId: {
-      type:     Schema.Types.ObjectId,
-      ref:      'User',
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
-      index:    true,
+      index: true,
     },
     technicianId: {
       type: Schema.Types.ObjectId,
-      ref:  'User',
+      ref: 'User',
     },
     // ── Device ──────────────────────────────────
     brandId: {
-      type:     Schema.Types.ObjectId,
-      ref:      'Brand',
+      type: Schema.Types.ObjectId,
+      ref: 'Brand',
       required: true,
     },
     seriesId: {
-      type:     Schema.Types.ObjectId,
-      ref:      'Series',
+      type: Schema.Types.ObjectId,
+      ref: 'Series',
       required: true,
     },
     modelId: {
-      type:     Schema.Types.ObjectId,
-      ref:      'DeviceModel',
+      type: Schema.Types.ObjectId,
+      ref: 'DeviceModel',
       required: true,
     },
     modelName: {
-      type:     String,
+      type: String,
       required: true,
     },
     // ── Services ────────────────────────────────
     services: {
-      type:     [OrderServiceSchema],
+      type: [OrderServiceSchema],
       required: true,
     },
     // ── Pickup Details ───────────────────────────
     pickupAddress: {
-      type:     AddressSchema,
+      type: AddressSchema,
       required: true,
     },
     contactName: {
-      type:     String,
+      type: String,
       required: true,
-      trim:     true,
+      trim: true,
     },
     contactPhone: {
-      type:     String,
+      type: String,
       required: true,
-      trim:     true,
+      trim: true,
     },
     pickupDate: {
-      type:     Date,
+      type: Date,
       required: true,
     },
     pickupSlot: {
-      type:     String,
+      type: String,
       required: true,
     },
     // ── Status ──────────────────────────────────
     status: {
-      type:    String,
-      enum:    [
+      type: String,
+      enum: [
         'booked',
         'pickup_scheduled',
         'device_picked_up',
@@ -217,15 +234,15 @@ const OrderSchema = new Schema<IOrder>(
         'cancelled'
       ],
       default: 'booked',
-      index:   true,
+      index: true,
     },
     priority: {
-      type:    String,
-      enum:    ['normal', 'urgent', 'vip'],
+      type: String,
+      enum: ['normal', 'urgent', 'vip'],
       default: 'normal',
     },
     statusHistory: {
-      type:    [StatusHistorySchema],
+      type: [StatusHistorySchema],
       default: [],
     },
     // ── Technician ───────────────────────────────
@@ -234,36 +251,40 @@ const OrderSchema = new Schema<IOrder>(
       trim: true,
     },
     beforePhotos: {
-      type:    [String],
+      type: [String],
       default: [],
     },
     afterPhotos: {
-      type:    [String],
+      type: [String],
+      default: [],
+    },
+    finalServices: {
+      type: [FinalServicesSchema],
       default: [],
     },
     estimateSentAt: {
       type: Date,
     },
     customerApproval: {
-      type:    String,
-      enum:    ['pending', 'approved', 'rejected'],
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
       default: 'pending',
     },
     // ── Financial ────────────────────────────────
     estimatedAmount: {
-      type:    Number,
+      type: Number,
       default: 0,
     },
     finalAmount: {
       type: Number,
     },
     bookingFee: {
-      type:    Number,
+      type: Number,
       default: 0,       // ← set from Settings in controller
     },
     paymentStatus: {
-      type:    String,
-      enum:    ['pending', 'partial', 'paid'],
+      type: String,
+      enum: ['pending', 'partial', 'paid'],
       default: 'pending',
     },
     // ── Admin ────────────────────────────────────

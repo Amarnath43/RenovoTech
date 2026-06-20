@@ -8,6 +8,7 @@ export interface ISettings extends Document {
   // ── Pickup Slots ─────────────────────────────
   pickupSlotDurationMins: number;
   maxPickupsPerSlot: number;
+  minLeadTimeMinutes: number;
   workingHoursStart: string;
   workingHoursEnd: string;
   calendarDays: number;
@@ -43,6 +44,10 @@ const SettingsSchema = new Schema<ISettings>(
       type: Number,
       default: 5,           // ← 5 pickups per slot
     },
+    minLeadTimeMinutes: {          // ← NEW
+      type: Number,
+      default: 60,
+    },
     workingHoursStart: {
       type: String,
       default: '09:00',     // ← 9:00 AM
@@ -65,7 +70,7 @@ const SettingsSchema = new Schema<ISettings>(
         'friday',
         'saturday',
         'sunday'
-      ],                    
+      ],
     },
     // ── Payment ──────────────────────────────────
     bookingFee: {

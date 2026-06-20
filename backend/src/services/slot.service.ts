@@ -1,5 +1,11 @@
 import { Settings, ISettings } from '../models/Settings.js';
 import { SlotCounter } from '../models/SlotCounter.js';
+import {
+  parseSlotMinutes,
+  getISTNowMinutes,
+  isTodayIST,
+} from '../utils/slotTime.js';
+
 
 // ── Types ─────────────────────────────────────────
 export interface ISlot {
@@ -114,43 +120,68 @@ export const getAvailableDates = async (): Promise<string[]> => {
 };
 
 // ── Get Available Slots ───────────────────────────
-export const getAvailableSlots = async (
-  dateStr: string,
-): Promise<ISlot[]> => {
+
+
+const LEAD_BUFFER_MIN = 60;
+
+type SlotReason = 'full' | 'passed' | null;
+
+interface SlotInfo {
+  slot:      string;
+  available: boolean;
+  reason:    SlotReason;
+  count:     number;
+}
+
+export const getAvailableSlots = async (date: string): Promise<SlotInfo[]> => {
   const settings = await getSettings();
 
-  const date = new Date(dateStr);
-  if (!isWorkingDay(date, settings.workingDays)) return [];
-
-  // explicit UTC range
+  // explicit UTC day range for the SlotCounter query
   const startOfDay = new Date(date);
   startOfDay.setUTCHours(0, 0, 0, 0);
-
   const endOfDay = new Date(date);
   endOfDay.setUTCHours(23, 59, 59, 999);
 
-  const slotTimes = generateSlots(
+  // one query: counters for this date
+  const counters = await SlotCounter.find({
+    date: { $gte: startOfDay, $lt: endOfDay },
+  });
+
+  const counterMap = new Map<string, number>();
+  counters.forEach((c) => counterMap.set(c.slot, c.count));
+
+  // all slots for the working window
+  const allSlots = generateSlots(
     settings.workingHoursStart,
     settings.workingHoursEnd,
     settings.pickupSlotDurationMins,
   );
 
-  const slotCounters = await SlotCounter.find({
-    date: { $gte: startOfDay, $lt: endOfDay }
+  // same-day check (IST)
+  const targetDate = new Date(date);
+  const checkToday = isTodayIST(targetDate);
+  const nowMinutes = getISTNowMinutes();
+
+  // build reason-based slot list
+  const slots: SlotInfo[] = allSlots.map((slot) => {
+    const count = counterMap.get(slot) ?? 0;
+
+    // reason 1 — fully booked (checked first)
+    if (count >= settings.maxPickupsPerSlot) {
+      return { slot, available: false, reason: 'full', count };
+    }
+
+    // reason 2 — time already passed (today only, with lead buffer)
+    if (checkToday) {
+      const slotMin = parseSlotMinutes(slot);
+      if (slotMin < nowMinutes + LEAD_BUFFER_MIN) {
+        return { slot, available: false, reason: 'passed', count };
+      }
+    }
+
+    // bookable
+    return { slot, available: true, reason: null, count };
   });
 
-  const counterMap: Record<string, number> = {};
-  slotCounters.forEach(sc => {
-    counterMap[sc.slot] = sc.count;
-  });
-
-  return slotTimes.map(slot => {
-    const count = counterMap[slot] ?? 0;
-    return {
-      slot,
-      available: count < settings.maxPickupsPerSlot,
-      count,
-      max: settings.maxPickupsPerSlot,
-    };
-  });
+  return slots;
 };

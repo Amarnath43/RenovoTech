@@ -6,6 +6,12 @@ import { generateOrderId } from '../utils/generateOrderId.js';
 import { notificationQueue } from '../queues/notification.queue.js'
 import { logger } from '../utils/logger.js';
 import { createError } from '../utils/errorHandler.js';
+import { ServicePricing } from '../models/ServicePricing.js';
+import {
+  parseSlotMinutes,
+  getISTNowMinutes,
+  isTodayIST
+} from '../utils/slotTime.js';
 
 // ── Types ─────────────────────────────────────────
 interface CreateOrderInput {
@@ -84,6 +90,21 @@ export const createOrder = async (
       throw createError('Selected date is not a working day', 400);
     }
 
+
+    const LEAD_BUFFER_MIN = 60; // keep in sync with slot.service.ts
+
+    if (isTodayIST(pickup)) {
+      const slotMin = parseSlotMinutes(input.pickupSlot);
+      const nowMin = getISTNowMinutes();
+
+      if (slotMin < 0) {
+        throw createError('Invalid slot format', 400);
+      }
+      if (slotMin < nowMin + LEAD_BUFFER_MIN) {
+        throw createError('This slot is no longer available for today', 400);
+      }
+    }
+
     // 4. check slot availability atomically
     let slotCounter;
     try {
@@ -113,9 +134,29 @@ export const createOrder = async (
       throw createError('Selected slot is full. Please choose another slot.', 409);
     }
 
-    const estimatedAmount = input.services.reduce(
-      (sum, s) => sum + s.price, 0
+    // 5a. verify service prices against catalog (reject client-supplied prices)
+    const verifiedServices = await Promise.all(
+      input.services.map(async (s) => {
+        const pricing = await ServicePricing.findOne({
+          modelId: new mongoose.Types.ObjectId(input.modelId),
+          serviceId: new mongoose.Types.ObjectId(s.serviceId),
+          isActive: true,
+        }).session(session);
+
+        if (!pricing) {
+          throw createError(`Service not available for this model: ${s.serviceName}`, 400);
+        }
+
+        return {
+          serviceId: s.serviceId,
+          serviceName: s.serviceName,
+          price: pricing.discountedPrice ?? pricing.price,
+          selectedSymptoms: s.selectedSymptoms,
+        };
+      })
     );
+
+    const estimatedAmount = verifiedServices.reduce((sum, s) => sum + s.price, 0);
 
     // 5. get booking fee from settings
     const bookingFee = settings.bookingFeeEnabled
@@ -134,7 +175,7 @@ export const createOrder = async (
         seriesId: input.seriesId,
         modelId: input.modelId,
         modelName: input.modelName,
-        services: input.services,
+        services: verifiedServices,
         pickupAddress: input.pickupAddress,
         contactName: input.contactName,
         contactPhone: input.contactPhone,
@@ -188,7 +229,7 @@ export const updateOrderStatus = async (
   session.startTransaction();
 
   try {
-    const order = await Order.findById(input.orderId).session(session);
+    const order = await Order.findOne({ orderId: input.orderId }).session(session);
     if (!order) throw createError('Order not found', 404);
 
     // update status + push to history atomically
@@ -225,7 +266,7 @@ export const assignTechnician = async (
 
   const order = await Order.findOneAndUpdate(
     {
-      _id: orderId,
+      orderId,
       status: 'device_received',
     },
     {
@@ -259,20 +300,79 @@ export const assignTechnician = async (
   return order;
 };
 
-// ── Submit Estimate ───────────────────────────────
+
+
 export const submitEstimate = async (
   orderId: string,
   technicianId: string,
-  amount: number,
+  inputServices: {
+    serviceId?: string | null;
+    serviceName: string;
+    price?: number;        // only used for custom services
+  }[],
   notes: string,
 ): Promise<IOrder> => {
+  // 1. fetch the order first (need modelId for price lookup)
+  const existing = await Order.findOne({
+    orderId,
+    technicianId: new mongoose.Types.ObjectId(technicianId),
+    status: 'diagnosis_in_progress',
+  });
+
+  if (!existing) {
+    throw createError('Order not found, not assigned to you, or not in diagnosis_in_progress state', 409);
+  }
+
+  // 2. build finalServices with VERIFIED prices
+  const finalServices = [];
+
+  for (const s of inputServices) {
+    if (s.serviceId) {
+      // catalog service → look up REAL price (ignore frontend price)
+      const pricing = await ServicePricing.findOne({
+        modelId: existing.modelId,
+        serviceId: s.serviceId,
+        isActive: true,
+      }).populate('serviceId', 'name');
+
+      if (!pricing) {
+        throw createError(`Invalid service for this model: ${s.serviceName}`, 400);
+      }
+
+      const svc = pricing.serviceId as unknown as { name: string };
+
+      finalServices.push({
+        serviceId: pricing.serviceId,
+        serviceName: svc.name,
+        price: pricing.discountedPrice ?? pricing.price,  // catalog price ✅
+      });
+    } else {
+      // custom "Other" service → trust technician's input
+      if (!s.serviceName || typeof s.price !== 'number' || s.price <= 0) {
+        throw createError('Custom service needs a name and valid price', 400);
+      }
+
+      finalServices.push({
+        serviceId: null,
+        serviceName: s.serviceName,
+        price: s.price,
+      });
+    }
+  }
+
+  // 3. calculate total from VERIFIED prices
+  const amount = finalServices.reduce((sum, s) => sum + s.price, 0);
+
+  // 4. update order
   const order = await Order.findOneAndUpdate(
     {
-      _id: orderId,
+      orderId,
+      technicianId: new mongoose.Types.ObjectId(technicianId),
       status: 'diagnosis_in_progress',
     },
     {
       $set: {
+        finalServices,
         estimatedAmount: amount,
         diagnosisNotes: notes,
         estimateSentAt: new Date(),
@@ -291,11 +391,11 @@ export const submitEstimate = async (
     { new: true },
   );
 
-  if (!order) throw createError('Order not found or not in diagnosis_in_progress state', 409);
+  if (!order) {
+    throw createError('Order not found or state changed', 409);
+  }
 
   logger.info(`[ORDER] Estimate sent: ${order.orderId} — ₹${amount}`);
-
-  const serviceNames = order.services.map(s => s.serviceName).join(', ');
 
   await notificationQueue.add('send-whatsapp', {
     orderId: order._id.toString(),
@@ -303,7 +403,6 @@ export const submitEstimate = async (
     data: {
       orderId: order.orderId,
       model: order.modelName,
-      services: serviceNames,
       amount: amount.toString(),
     },
   });
@@ -325,8 +424,9 @@ export const respondToEstimate = async (
 
   const order = await Order.findOneAndUpdate(
     {
-      _id: orderId,
+      orderId,
       customerId: new mongoose.Types.ObjectId(customerId),
+      status: 'estimate_sent',
       customerApproval: 'pending',
     },
     {
@@ -364,26 +464,26 @@ export const respondToEstimate = async (
 
 // ── Start Diagnosis ───────────────────────────────
 export const startDiagnosis = async (
-  orderId:      string,
+  orderId: string,
   technicianId: string,
-  notes?:       string,
+  notes?: string,
 ): Promise<IOrder> => {
   const order = await Order.findOneAndUpdate(
     {
-      _id:          orderId,
+      orderId,
       technicianId: new mongoose.Types.ObjectId(technicianId),
-      status:       'technician_assigned',
+      status: 'technician_assigned',
     },
     {
       $set: {
-        status:         'diagnosis_in_progress',
+        status: 'diagnosis_in_progress',
         ...(notes ? { diagnosisNotes: notes } : {}),
       },
       $push: {
         statusHistory: {
-          status:    'diagnosis_in_progress',
+          status: 'diagnosis_in_progress',
           updatedBy: new mongoose.Types.ObjectId(technicianId),
-          note:      'Diagnosis started',
+          note: 'Diagnosis started',
           timestamp: new Date(),
         },
       },
@@ -405,22 +505,22 @@ export const startDiagnosis = async (
 
 // ── Start Repair ──────────────────────────────────
 export const startRepair = async (
-  orderId:      string,
+  orderId: string,
   technicianId: string,
 ): Promise<IOrder> => {
   const order = await Order.findOneAndUpdate(
     {
-      _id:          orderId,
+      orderId,
       technicianId: new mongoose.Types.ObjectId(technicianId),
-      status:       'customer_approved',
+      status: 'customer_approved',
     },
     {
       $set: { status: 'repair_in_progress' },
       $push: {
         statusHistory: {
-          status:    'repair_in_progress',
+          status: 'repair_in_progress',
           updatedBy: new mongoose.Types.ObjectId(technicianId),
-          note:      'Repair started',
+          note: 'Repair started',
           timestamp: new Date(),
         },
       },
@@ -442,23 +542,23 @@ export const startRepair = async (
 
 // ── Complete Repair ───────────────────────────────
 export const completeRepair = async (
-  orderId:      string,
+  orderId: string,
   technicianId: string,
-  note?:        string,
+  note?: string,
 ): Promise<IOrder> => {
   const order = await Order.findOneAndUpdate(
     {
-      _id:          orderId,
+      orderId,
       technicianId: new mongoose.Types.ObjectId(technicianId),
-      status:       'repair_in_progress',
+      status: 'repair_in_progress',
     },
     {
       $set: { status: 'ready_for_drop' },
       $push: {
         statusHistory: {
-          status:    'ready_for_drop',
+          status: 'ready_for_drop',
           updatedBy: new mongoose.Types.ObjectId(technicianId),
-          note:      note || 'Repair completed, ready for drop',
+          note: note || 'Repair completed, ready for drop',
           timestamp: new Date(),
         },
       },
@@ -480,14 +580,14 @@ export const completeRepair = async (
 
 // ── Upload Photos ─────────────────────────────────
 export const uploadPhotos = async (
-  orderId:       string,
-  technicianId:  string,
+  orderId: string,
+  technicianId: string,
   beforePhotos?: string[],
-  afterPhotos?:  string[],
+  afterPhotos?: string[],
 ): Promise<IOrder> => {
   const update: Record<string, string[]> = {};
   if (beforePhotos?.length) update.beforePhotos = beforePhotos;
-  if (afterPhotos?.length)  update.afterPhotos  = afterPhotos;
+  if (afterPhotos?.length) update.afterPhotos = afterPhotos;
 
   if (Object.keys(update).length === 0) {
     throw createError('No photos provided', 400);
@@ -495,7 +595,7 @@ export const uploadPhotos = async (
 
   const order = await Order.findOneAndUpdate(
     {
-      _id:          orderId,
+      orderId,
       technicianId: new mongoose.Types.ObjectId(technicianId),
     },
     { $set: update },
