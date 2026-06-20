@@ -10,7 +10,7 @@ import {
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createError }  from '../utils/errorHandler.js';
 
-// ── Get My Assigned Jobs ────────────────────────── //too much unnecessary data
+// ── Get My Assigned Jobs (lean list) ──────────────
 export const getMyJobs = asyncHandler(async (req, res) => {
   const technicianId = req.user?.id;
   if (!technicianId) throw createError('Not authenticated', 401);
@@ -23,7 +23,7 @@ export const getMyJobs = asyncHandler(async (req, res) => {
   const jobs = await Order
     .find(filter)
     .sort({ updatedAt: -1 })
-    .select('orderId status modelName services contactName contactPhone pickupAddress pickupDate pickupSlot diagnosisNotes estimatedAmount beforePhotos afterPhotos createdAt');
+    .select('orderId status modelName contactName pickupDate pickupSlot createdAt');
 
   res.json({ success: true, jobs });
 });
@@ -38,13 +38,13 @@ export const getJob = asyncHandler(async (req, res) => {
   const order = await Order.findOne({
     orderId,
     technicianId: new mongoose.Types.ObjectId(technicianId),
-  });
+  }).select('-__v');
 
   if (!order) {
     throw createError('Job not found or not assigned to you', 404);
   }
 
-  res.json({ success: true, order }); //select only req fields
+  res.json({ success: true, order });
 });
 
 // ── Start Diagnosis ───────────────────────────────
@@ -52,9 +52,8 @@ export const diagnose = asyncHandler(async (req, res) => {
   const technicianId = req.user?.id;
   if (!technicianId) throw createError('Not authenticated', 401);
   const orderId = req.params.orderId as string;
-  const { notes } = req.body; //why notes to start diagnosis
 
-  const order = await startDiagnosis(orderId, technicianId, notes);
+  const order = await startDiagnosis(orderId, technicianId);
 
   res.json({
     success: true,

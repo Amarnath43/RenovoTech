@@ -467,7 +467,6 @@ export const respondToEstimate = async (
 export const startDiagnosis = async (
   orderId: string,
   technicianId: string,
-  notes?: string,
 ): Promise<IOrder> => {
   const order = await Order.findOneAndUpdate(
     {
@@ -477,8 +476,7 @@ export const startDiagnosis = async (
     },
     {
       $set: {
-        status: 'diagnosis_in_progress',
-        ...(notes ? { diagnosisNotes: notes } : {}),
+        status: 'diagnosis_in_progress'
       },
       $push: {
         statusHistory: {
