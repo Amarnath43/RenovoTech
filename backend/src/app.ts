@@ -21,10 +21,10 @@ import brandRoutes from './routes/brand.routes.js';
 import slotRoutes from './routes/slot.routes.js';
 import userRoutes from './routes/user.routes.js';
 import orderRoutes          from './routes/order.routes.js';
+import adminRoutes from './routes/admin/index.js';
 // import adminOrderRoutes     from './routes/admin/order.routes.js';
 // import adminBrandRoutes     from './routes/admin/brand.routes.js';
 // import adminSettingsRoutes  from './routes/admin/settings.routes.js';
-// import adminCustomerRoutes  from './routes/admin/customer.routes.js';
 // import techRoutes           from './routes/technician.routes.js';
 
 // ── Cron Jobs ─────────────────────────────────────
@@ -77,6 +77,8 @@ app.use('/api/v1', brandRoutes);   // /brands, /models/:id/pricing
 app.use('/api/v1/slots', slotRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/orders',          orderRoutes);
+app.use('/api/v1/admin', adminRoutes);
+
 // app.use('/api/v1/admin/orders',    adminOrderRoutes);
 // app.use('/api/v1/admin/brands',    adminBrandRoutes);
 // app.use('/api/v1/admin/settings',  adminSettingsRoutes);

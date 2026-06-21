@@ -49,9 +49,8 @@ const UserSchema = new Schema<IUser>(
 );
 
 // ── Indexes ───────────────────────────────────────
-UserSchema.index({ phone: 1 });
-UserSchema.index({ role: 1 });
-UserSchema.index({ isActive: 1 });
+UserSchema.index({ name: 1 });
+UserSchema.index({ role: 1, createdAt: -1 });
 
 // ── Model ─────────────────────────────────────────
 export const User = mongoose.model<IUser>('User', UserSchema);
