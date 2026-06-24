@@ -18,23 +18,6 @@ export const create = asyncHandler(async (req, res) => {
         pickupDate, pickupSlot,
     } = req.body;
 
-    // basic validation
-    if (!brandId || !seriesId || !modelId || !modelName) {
-        throw createError('Device details are required', 400);
-    }
-    if (!Array.isArray(services) || services.length === 0) {
-        throw createError('At least one service is required', 400);
-    }
-    if (!pickupAddress || !pickupAddress.coordinates) {
-        throw createError('Valid pickup address is required', 400);
-    }
-    if (!contactName || !/^[6-9]\d{9}$/.test(contactPhone)) {
-        throw createError('Valid contact name and phone are required', 400);
-    }
-    if (!pickupDate || !pickupSlot) {
-        throw createError('Pickup date and slot are required', 400);
-    }
-
     const order = await createOrder({
         customerId,
         brandId, seriesId, modelId, modelName,

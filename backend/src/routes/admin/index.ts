@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { verifyToken, requireRole } from '../../middleware/auth.js';
-import settingsRoutes from './settings.route.js';
-import customerRoutes from './customer.route.js';
-
-
+import settingsRoutes from './settings.routes.js';
+import customerRoutes from './customer.routes.js';
+import reportRoutes from './report.routes.js';
 
 const router = Router();
 
@@ -13,7 +12,7 @@ router.use(requireRole('admin'));
 
 // Mount sub-routes
 router.use('/settings', settingsRoutes);
-// (order, customer, report, brand → added as we build them)
 router.use('/customers', customerRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

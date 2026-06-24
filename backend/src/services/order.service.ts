@@ -13,34 +13,8 @@ import {
   isTodayIST
 } from '../utils/slotTime.js';
 import { FinalServices } from '../models/Order.js';
+import { CreateOrderBody } from '../validators/schemas.js';
 
-// ── Types ─────────────────────────────────────────
-interface CreateOrderInput {
-  customerId: string;
-  brandId: string;
-  seriesId: string;
-  modelId: string;
-  modelName: string;
-  services: {
-    serviceId: string;
-    serviceName: string;
-    price: number;
-    selectedSymptoms: string[];
-  }[];
-  pickupAddress: {
-    flatOrHouse: string;
-    area: string;
-    city: string;
-    state: string;
-    pincode: string;
-    fullAddress: string;
-    coordinates: { lat: number; lng: number };
-  };
-  contactName: string;
-  contactPhone: string;
-  pickupDate: string;
-  pickupSlot: string;
-}
 
 interface UpdateStatusInput {
   orderId: string;
@@ -51,7 +25,7 @@ interface UpdateStatusInput {
 
 // ── Create Order ──────────────────────────────────
 export const createOrder = async (
-  input: CreateOrderInput,
+  input: CreateOrderBody & { customerId: string },
 ): Promise<IOrder> => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -92,7 +66,7 @@ export const createOrder = async (
     }
 
 
-    const LEAD_BUFFER_MIN = 60; // keep in sync with slot.service.ts
+
 
     if (isTodayIST(pickup)) {
       const slotMin = parseSlotMinutes(input.pickupSlot);
@@ -101,9 +75,10 @@ export const createOrder = async (
       if (slotMin < 0) {
         throw createError('Invalid slot format', 400);
       }
-      if (slotMin < nowMin + LEAD_BUFFER_MIN) {
+      if (slotMin < nowMin + settings.minLeadTimeMinutes) {
         throw createError('This slot is no longer available for today', 400);
       }
+
     }
 
     // 4. check slot availability atomically
@@ -307,9 +282,7 @@ export const submitEstimate = async (
   orderId: string,
   technicianId: string,
   inputServices: {
-    serviceId?: string | null;
-    serviceName: string;
-    price?: number;        // only used for custom services
+    serviceId: string;
   }[],
   notes: string,
 ): Promise<IOrder> => {
@@ -328,37 +301,28 @@ export const submitEstimate = async (
   const finalServices: FinalServices[] = [];
 
   for (const s of inputServices) {
-    if (s.serviceId) {
-      // catalog service → look up REAL price (ignore frontend price)
-      const pricing = await ServicePricing.findOne({
-        modelId: existing.modelId,
-        serviceId: s.serviceId,
-        isActive: true,
-      }).populate('serviceId', 'name');
 
-      if (!pricing) {
-        throw createError(`Invalid service for this model: ${s.serviceName}`, 400);
-      }
+    const pricing = await ServicePricing.findOne({
+      modelId: existing.modelId,
+      serviceId: s.serviceId,
+      isActive: true,
+    }).populate('serviceId', 'name');
 
-      const svc = pricing.serviceId as unknown as { name: string };
-
-      finalServices.push({
-        serviceId: pricing.serviceId,
-        serviceName: svc.name,
-        price: pricing.discountedPrice ?? pricing.price,  // catalog price ✅
-      });
-    } else {
-      // custom "Other" service → trust technician's input
-      if (!s.serviceName || typeof s.price !== 'number' || s.price <= 0) {
-        throw createError('Custom service needs a name and valid price', 400);
-      }
-
-      finalServices.push({
-        serviceId: null,
-        serviceName: s.serviceName,
-        price: s.price,
-      });
+    if (!pricing) {
+      throw createError("Invalid service for this model", 400);
     }
+
+    const svc = pricing.serviceId as unknown as {
+      _id: mongoose.Types.ObjectId;
+      name: string;
+    };
+
+    finalServices.push({
+      serviceId: svc._id,
+      serviceName: svc.name,
+      price: pricing.discountedPrice ?? pricing.price,  // catalog price ✅
+    });
+
   }
 
   // 3. calculate total from VERIFIED prices
@@ -585,8 +549,8 @@ export const uploadPhotos = async (
   afterPhotos?: string[],
 ): Promise<IOrder> => {
   const update: Record<string, string[]> = {};
-  if (beforePhotos?.length) update.beforePhotos = beforePhotos;
-  if (afterPhotos?.length) update.afterPhotos = afterPhotos;
+  if (beforePhotos !== undefined) update.beforePhotos = beforePhotos;
+  if (afterPhotos !== undefined) update.afterPhotos = afterPhotos;
 
   if (Object.keys(update).length === 0) {
     throw createError('No photos provided', 400);
@@ -597,7 +561,7 @@ export const uploadPhotos = async (
       orderId,
       technicianId: new mongoose.Types.ObjectId(technicianId),
     },
-    { $set: update },
+    { $set: update },   // replace with final list
     { new: true },
   );
 
@@ -605,6 +569,6 @@ export const uploadPhotos = async (
     throw createError('Order not found or not assigned to you', 409);
   }
 
-  logger.info(`[ORDER] Photos uploaded: ${order.orderId}`);
+  logger.info(`[ORDER] Photos updated: ${order.orderId}`);
   return order;
 };

@@ -45,9 +45,9 @@ export interface IStatusHistory {
 }
 
 export interface FinalServices {
-  serviceId: mongoose.Types.ObjectId | null;
+  serviceId: mongoose.Types.ObjectId;
   serviceName: string;
-  price: number,
+  price: number;
 }
 
 // ── Order Service Interface ───────────────────────
@@ -96,6 +96,7 @@ export interface IOrder extends Document {
   adminNotes?: string;
   createdAt: Date;
   updatedAt: Date;
+  completedAt: Date | null;
 }
 
 // ── Address Schema ────────────────────────────────
@@ -140,7 +141,7 @@ const OrderServiceSchema = new Schema<IOrderService>(
 // ── Final Services Schema ─────────────────────────
 const FinalServicesSchema = new Schema<FinalServices>(
   {
-    serviceId: { type: Schema.Types.ObjectId, ref: 'Service', default: null },
+    serviceId: { type: Schema.Types.ObjectId, ref: 'Service', required: true  },
     serviceName: { type: String, required: true },
     price: { type: Number },
   },
@@ -227,7 +228,6 @@ const OrderSchema = new Schema<IOrder>(
         'customer_approved',
         'customer_rejected',
         'repair_in_progress',
-        'quality_check',
         'ready_for_drop',
         'out_for_delivery',
         'completed',
@@ -292,6 +292,10 @@ const OrderSchema = new Schema<IOrder>(
       type: String,
       trim: true,
     },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -302,6 +306,7 @@ OrderSchema.index({ technicianId: 1, status: 1 });
 OrderSchema.index({ status: 1, createdAt: -1 });
 OrderSchema.index({ pickupDate: 1, pickupSlot: 1, status: 1 });
 OrderSchema.index({ 'pickupAddress.pincode': 1 });
+OrderSchema.index({ status: 1, completedAt: -1 });
 
 // ── Model ─────────────────────────────────────────
 export const Order = mongoose.model<IOrder>('Order', OrderSchema);
