@@ -102,7 +102,7 @@ export const getAvailableDates = async (): Promise<string[]> => {
 
   const dates: string[] = [];
 
-  for (let i = 1; i <= settings.calendarDays; i++) {
+  for (let i = 0; i <= settings.calendarDays; i++) {
     const date = new Date(today);
     date.setUTCDate(today.getUTCDate() + i);
 

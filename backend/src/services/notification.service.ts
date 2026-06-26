@@ -137,7 +137,7 @@ export const notifyCustomer = async (
 
         const message = getTemplate(event, {
             ...data,
-            name: customer.name,
+            name: customer.name || 'there',
         });
 
         await sendWhatsApp(

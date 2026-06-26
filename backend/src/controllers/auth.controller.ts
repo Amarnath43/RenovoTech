@@ -29,8 +29,11 @@ export const verifyOtp = asyncHandler(async (req, res) => {
   const result = await verifyOTP(phone, otp);
   if (!result.success) throw createError(result.message, 400);
 
-  let user = await User.findOne({ phone });
-  if (!user) user = await User.create({ phone, role: 'customer' });
+  const user = await User.findOneAndUpdate(
+    { phone },
+    { $setOnInsert: { phone, role: 'customer' } },
+    { upsert: true, new: true },
+  );
 
   if (!user.isActive) {
     throw createError('Your account has been deactivated. Contact support.', 403);

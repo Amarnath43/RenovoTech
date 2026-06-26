@@ -7,6 +7,7 @@ import { notificationQueue } from '../queues/notification.queue.js'
 import { logger } from '../utils/logger.js';
 import { createError } from '../utils/errorHandler.js';
 import { ServicePricing } from '../models/ServicePricing.js';
+import { DeviceModel } from '../models/DeviceModel.js';
 import {
   parseSlotMinutes,
   getISTNowMinutes,
@@ -41,6 +42,13 @@ export const createOrder = async (
     if (!settings.pickupDropEnabled) {
       throw createError('Pickup & Drop service is currently unavailable', 503);
     }
+
+    // 2a. fetch modelName from catalog
+    const deviceModel = await DeviceModel.findOne({
+      _id: new mongoose.Types.ObjectId(input.modelId),
+      isActive: true,
+    }).session(session).select('name');
+    if (!deviceModel) throw createError('Device model not found', 400);
 
     // 3. validate pickup date
     const today = new Date();
@@ -110,22 +118,24 @@ export const createOrder = async (
       throw createError('Selected slot is full. Please choose another slot.', 409);
     }
 
-    // 5a. verify service prices against catalog (reject client-supplied prices)
+    // 5a. verify service prices against catalog (reject client-supplied prices/names)
     const verifiedServices = await Promise.all(
       input.services.map(async (s) => {
         const pricing = await ServicePricing.findOne({
           modelId: new mongoose.Types.ObjectId(input.modelId),
           serviceId: new mongoose.Types.ObjectId(s.serviceId),
           isActive: true,
-        }).session(session);
+        }).session(session).populate('serviceId', 'name');
 
         if (!pricing) {
-          throw createError(`Service not available for this model: ${s.serviceName}`, 400);
+          throw createError(`Service not available for this model: ${s.serviceId}`, 400);
         }
 
+        const svc = pricing.serviceId as unknown as { _id: mongoose.Types.ObjectId; name: string };
+
         return {
-          serviceId: s.serviceId,
-          serviceName: s.serviceName,
+          serviceId: svc._id,
+          serviceName: svc.name,
           price: pricing.discountedPrice ?? pricing.price,
           selectedSymptoms: s.selectedSymptoms,
         };
@@ -150,7 +160,7 @@ export const createOrder = async (
         brandId: input.brandId,
         seriesId: input.seriesId,
         modelId: input.modelId,
-        modelName: input.modelName,
+        modelName: deviceModel.name,
         services: verifiedServices,
         pickupAddress: input.pickupAddress,
         contactName: input.contactName,
@@ -366,9 +376,10 @@ export const submitEstimate = async (
     orderId: order._id.toString(),
     event: 'estimate_sent',
     data: {
-      orderId: order.orderId,
-      model: order.modelName,
-      amount: amount.toString(),
+      orderId:  order.orderId,
+      model:    order.modelName,
+      amount:   amount.toString(),
+      services: order.finalServices.map((s) => s.serviceName).join(', '),
     },
   });
 

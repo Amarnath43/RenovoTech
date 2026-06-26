@@ -20,7 +20,7 @@ export const create = asyncHandler(async (req, res) => {
 
     const order = await createOrder({
         customerId,
-        brandId, seriesId, modelId, modelName,
+        brandId, seriesId, modelId,
         services, pickupAddress,
         contactName, contactPhone,
         pickupDate, pickupSlot,

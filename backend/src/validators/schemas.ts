@@ -51,8 +51,6 @@ const addressSchema = z.object({
 
 const orderServiceSchema = z.object({
   serviceId:        objectIdSchema,
-  serviceName:      z.string().trim().min(1),
-  price:            z.number().nonnegative(),
   selectedSymptoms: z.array(z.string()).default([]),
 });
 
@@ -60,13 +58,12 @@ export const createOrderSchema = z.object({
   brandId:       objectIdSchema,
   seriesId:      objectIdSchema,
   modelId:       objectIdSchema,
-  modelName:     z.string().trim().min(1, { message: 'Model name required' }),
   services:      z.array(orderServiceSchema).min(1, { message: 'At least one service is required' }),
   pickupAddress: addressSchema,
   contactName:   nameSchema,
   contactPhone:  phoneSchema,
   pickupDate:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date must be YYYY-MM-DD' }),
-  pickupSlot:    z.string().trim().min(1, { message: 'Pickup slot required' }),
+  pickupSlot:    z.string().trim().regex(/^\d{1,2}:\d{2} (AM|PM)$/, { message: 'Slot must be in "H:MM AM/PM" format' }),
 });
 export type CreateOrderBody = z.infer<typeof createOrderSchema>;
 
@@ -76,9 +73,7 @@ export const respondEstimateSchema = z.object({
 
 // ── Technician Estimate ───────────────────────────
 const estimateServiceSchema = z.object({
-  serviceId:   objectIdSchema.nullable().optional(),
-  serviceName: z.string().trim().min(1, { message: 'Service name required' }),
-  price:       z.number().positive().optional(),
+  serviceId: objectIdSchema,
 });
 
 export const submitEstimateSchema = z.object({
@@ -103,7 +98,15 @@ export const updateSettingsSchema = z
     bookingFee:             z.number().int().min(0).max(100000).optional(),
     bookingFeeEnabled:      z.boolean().optional(),
   })
-  .refine((d) => Object.keys(d).length > 0, { message: 'No valid settings fields provided' });
+  .refine((d) => Object.keys(d).length > 0, { message: 'No valid settings fields provided' })
+  .refine(
+    (d) => {
+      if (d.workingHoursStart && d.workingHoursEnd)
+        return d.workingHoursStart < d.workingHoursEnd;
+      return true;
+    },
+    { message: 'workingHoursStart must be before workingHoursEnd' },
+  );
 
   // ── Technician Complete ───────────────────────────
 export const completeRepairSchema = z.object({
@@ -123,8 +126,8 @@ const photoUrlSchema = z
 
   export const uploadPhotosSchema = z
   .object({
-    beforePhotos: z.array(photoUrlSchema).max(4, { message: 'Max 4 before photos' }).optional(),
-    afterPhotos:  z.array(photoUrlSchema).max(4, { message: 'Max 4 after photos' }).optional(),
+    beforePhotos: z.array(photoUrlSchema).min(1).max(4, { message: 'Max 4 before photos' }).optional(),
+    afterPhotos:  z.array(photoUrlSchema).min(1).max(4, { message: 'Max 4 after photos' }).optional(),
   })
   .refine(
     (d) => (d.beforePhotos?.length ?? 0) > 0 || (d.afterPhotos?.length ?? 0) > 0,
