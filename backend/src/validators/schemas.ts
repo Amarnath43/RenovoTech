@@ -133,3 +133,20 @@ const photoUrlSchema = z
     (d) => (d.beforePhotos?.length ?? 0) > 0 || (d.afterPhotos?.length ?? 0) > 0,
     { message: 'At least one photo is required' },
   );
+
+  const orderStatusValues = [
+  'booked', 'pickup_scheduled', 'device_picked_up', 'device_received',
+  'technician_assigned', 'diagnosis_in_progress', 'estimate_sent',
+  'customer_approved', 'customer_rejected', 'repair_in_progress',
+  'ready_for_drop', 'out_for_delivery', 'completed', 'cancelled',
+] as const;
+
+export const updateOrderStatusSchema = z.object({
+  status: z.enum(orderStatusValues),
+  note:   z.string().trim().max(500).optional(),
+  finalAmount: z.number().int().nonnegative().optional(),
+});
+
+export const assignTechnicianSchema = z.object({
+  technicianId: objectIdSchema,
+});

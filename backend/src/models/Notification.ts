@@ -13,6 +13,7 @@ export type NotificationEvent =
   | 'completed'
   | 'customer_rejected'
   | 'customer_approved'
+  | 'cancelled';
 
 
 // ── Interface ─────────────────────────────────────
@@ -61,6 +62,7 @@ const NotificationSchema = new Schema<INotification>(
         'completed',
         'customer_rejected',
         'customer_approved',
+        'cancelled',
       ],
       required: true,
     },

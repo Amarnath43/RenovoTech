@@ -4,6 +4,7 @@ import { Notification } from '../models/Notification.js';
 import { Order } from '../models/Order.js';
 import mongoose from 'mongoose';
 import { maskPhone } from '../utils/mask.js';
+import { NotificationEvent } from '../models/Notification.js';  
 
 // ── Twilio Client ─────────────────────────────────
 const getTwilioClient = () => {
@@ -14,17 +15,6 @@ const getTwilioClient = () => {
     );
 };
 
-// ── Types ─────────────────────────────────────────
-export type NotificationEvent =
-    | 'booking_confirmed'
-    | 'pickup_scheduled'
-    | 'device_picked_up'
-    | 'estimate_sent'
-    | 'repair_completed'
-    | 'out_for_delivery'
-    | 'completed'
-    | 'customer_approved'
-    | 'customer_rejected'
 
 // ── Message Template ──────────────────────────────
 export const getTemplate = (
@@ -57,6 +47,8 @@ export const getTemplate = (
 
         customer_rejected:
             `Hi ${data.name}! We've received your decision to cancel the repair.\nOrder ID: ${data.orderId}\nYour device will be returned to you shortly.`,
+        cancelled:
+            `Hi ${data.name}! We've had to cancel your repair.\nOrder ID: ${data.orderId}\nWe apologize for any inconvenience.`,
     };
 
     return templates[event];

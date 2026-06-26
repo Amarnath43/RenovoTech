@@ -1,5 +1,5 @@
 import {Queue} from 'bullmq'
-import type { NotificationEvent } from '../services/notification.service.js'
+import { NotificationEvent } from '../models/Notification.js';
 
 export interface NotificationJobData{
     orderId:string,
