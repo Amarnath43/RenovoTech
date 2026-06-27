@@ -3,7 +3,6 @@ import mongoose, { Schema, Document } from 'mongoose';
 // ── Symptom Interface ─────────────────────────────
 export interface ISymptom {
   label:       string;
-  description: string;
   isActive:    boolean;
 }
 
@@ -56,11 +55,6 @@ const ServiceSchema = new Schema<IService>(
           type:     String,
           required: true,
           trim:     true,
-        },
-        description: {
-          type:    String,
-          default: '',
-          trim:    true,
         },
         isActive: {
           type:    Boolean,
