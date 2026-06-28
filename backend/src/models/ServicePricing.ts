@@ -5,7 +5,7 @@ export interface IServicePricing extends Document {
   modelId: mongoose.Types.ObjectId;
   serviceId: mongoose.Types.ObjectId;
   price: number;
-  discountedPrice?: number;
+  discountedPrice?: number | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

@@ -8,6 +8,9 @@ import {
 import {
   createService, listServices, updateService,
 } from '../../services/admin/catalog.service.js';
+import {
+  createPricing, listPricing, updatePricing,
+} from '../../services/admin/catalog.service.js';
 
 
 
@@ -83,4 +86,27 @@ export const getServices = asyncHandler(async (req, res) => {
 export const editService = asyncHandler(async (req, res) => {
   const service = await updateService(req.params.serviceId as string, req.body);
   res.json({ success: true, message: 'Service updated', service });
+});
+
+
+
+// ═══════════════ PRICING ═══════════════
+
+export const addPricing = asyncHandler(async (req, res) => {
+  const pricing = await createPricing(req.body);
+  res.status(201).json({ success: true, message: 'Pricing created', pricing });
+});
+
+export const getPricing = asyncHandler(async (req, res) => {
+  const pricing = await listPricing({
+    modelId:   req.query.modelId as string | undefined,
+    serviceId: req.query.serviceId as string | undefined,
+    includeInactive: wantsInactive(req),
+  });
+  res.json({ success: true, pricing });
+});
+
+export const editPricing = asyncHandler(async (req, res) => {
+  const pricing = await updatePricing(req.params.pricingId as string, req.body);
+  res.json({ success: true, message: 'Pricing updated', pricing });
 });

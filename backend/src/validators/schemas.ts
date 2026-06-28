@@ -231,3 +231,24 @@ export const updateServiceSchema = z
     isActive:   z.boolean().optional(),
   })
   .refine((d) => Object.keys(d).length > 0, { message: 'No fields to update' });
+
+  // ── Admin Pricing ─────────────────────────────────
+export const createPricingSchema = z
+  .object({
+    modelId:         objectIdSchema,
+    serviceId:       objectIdSchema,
+    price:           z.number().int().nonnegative({ message: 'Price must be ≥ 0' }),
+    discountedPrice: z.number().int().nonnegative().nullable().optional(),
+  })
+  .refine(
+    (d) => d.discountedPrice == null || d.discountedPrice <= d.price,
+    { message: 'Discounted price cannot exceed price' },
+  );
+
+export const updatePricingSchema = z
+  .object({
+    price:           z.number().int().nonnegative().optional(),
+    discountedPrice: z.number().int().nonnegative().nullable().optional(),
+    isActive:        z.boolean().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: 'No fields to update' });

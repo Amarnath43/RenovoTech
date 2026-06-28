@@ -2,11 +2,11 @@ import mongoose from 'mongoose';
 import { Brand, IBrand } from '../../models/Brand.js';
 import { Series, ISeries } from '../../models/Series.js';
 import { DeviceModel, IDeviceModel } from '../../models/DeviceModel.js';
-import { ServicePricing } from '../../models/ServicePricing.js';
 import { generateSlug } from '../../utils/generateSlug.js';
 import { createError } from '../../utils/errorHandler.js';
 import { logger } from '../../utils/logger.js';
 import { Service, IService } from '../../models/Service.js';
+import { ServicePricing, IServicePricing } from '../../models/ServicePricing.js';
 
 // ═══════════════ BRAND ═══════════════
 
@@ -21,9 +21,9 @@ export const createBrand = async (input: {
   if (exists) throw createError('Brand with this name already exists', 409);
 
   const brand = await Brand.create({
-    name:         input.name,
+    name: input.name,
     slug,
-    logo:         input.logo ?? '',
+    logo: input.logo ?? '',
     displayOrder: input.displayOrder ?? 0,
   });
 
@@ -58,10 +58,9 @@ export const updateBrand = async (
 
   // cascade deactivation
   if (updates.isActive === false) {
-    const seriesIds = (await Series.find({ brandId }).select('_id')).map((s) => s._id);
+    const modelIds = (await DeviceModel.find({ brandId }).select('_id')).map((m) => m._id);
     await Series.updateMany({ brandId }, { $set: { isActive: false } });
     await DeviceModel.updateMany({ brandId }, { $set: { isActive: false } });
-    const modelIds = (await DeviceModel.find({ brandId }).select('_id')).map((m) => m._id);
     await ServicePricing.updateMany({ modelId: { $in: modelIds } }, { $set: { isActive: false } });
     logger.info(`[CATALOG] Brand deactivated + cascaded: ${brand.name}`);
   }
@@ -76,7 +75,7 @@ export const createSeries = async (input: {
   name: string;
   displayOrder?: number;
 }): Promise<ISeries> => {
-  const brand = await Brand.findById(input.brandId).select('_id');
+  const brand = await Brand.findById(input.brandId, { isActive: true }).select('_id');
   if (!brand) throw createError('Brand not found', 404);
 
   const slug = generateSlug(input.name);
@@ -85,8 +84,8 @@ export const createSeries = async (input: {
   if (exists) throw createError('Series with this name already exists for this brand', 409);
 
   const series = await Series.create({
-    brandId:      new mongoose.Types.ObjectId(input.brandId),
-    name:         input.name,
+    brandId: new mongoose.Types.ObjectId(input.brandId),
+    name: input.name,
     slug,
     displayOrder: input.displayOrder ?? 0,
   });
@@ -150,7 +149,7 @@ export const createModel = async (input: {
   displayOrder?: number;
 }): Promise<IDeviceModel> => {
   // derive brandId from the series (single source of truth)
-  const series = await Series.findById(input.seriesId).select('_id brandId');
+  const series = await Series.findOne({ _id: input.seriesId, isActive: true }, { _id: 1, brandId: 1 });
   if (!series) throw createError('Series not found', 404);
 
   const slug = generateSlug(input.name);
@@ -159,11 +158,11 @@ export const createModel = async (input: {
   if (exists) throw createError('Model with this name already exists for this series', 409);
 
   const model = await DeviceModel.create({
-    brandId:      series.brandId,       // derived ✅
-    seriesId:     series._id,
-    name:         input.name,
+    brandId: series.brandId,       // derived ✅
+    seriesId: series._id,
+    name: input.name,
     slug,
-    image:        input.image ?? '',
+    image: input.image ?? '',
     displayOrder: input.displayOrder ?? 0,
   });
 
@@ -229,12 +228,12 @@ export const createService = async (input: {
   if (exists) throw createError('Service with this name already exists', 409);
 
   const service = await Service.create({
-    name:       input.name,
+    name: input.name,
     slug,
-    image:      input.image ?? '',
+    image: input.image ?? '',
     repairTime: input.repairTime ?? 60,
-    warranty:   input.warranty ?? 90,
-    symptoms:   input.symptoms ?? [],
+    warranty: input.warranty ?? 90,
+    symptoms: input.symptoms ?? [],
   });
 
   logger.info(`[CATALOG] Service created: ${service.name}`);
@@ -279,4 +278,98 @@ export const updateService = async (
   }
 
   return service;
+};
+
+
+
+// ═══════════════ PRICING ═══════════════
+
+export const createPricing = async (input: {
+  modelId: string;
+  serviceId: string;
+  price: number;
+  discountedPrice?: number | null;
+}): Promise<IServicePricing> => {
+  // verify model exists + is active
+  const model = await DeviceModel.findOne({ _id: input.modelId, isActive: true }).select('_id');
+  if (!model) throw createError('Model not found or inactive', 404);
+
+  // verify service exists + is active
+  const service = await Service.findOne({ _id: input.serviceId, isActive: true }).select('_id');
+  if (!service) throw createError('Service not found or inactive', 404);
+
+  // enforce one price per model+service (unique constraint)
+  const exists = await ServicePricing.findOne({
+    modelId: input.modelId,
+    serviceId: input.serviceId,
+  });
+  if (exists) {
+    throw createError('Pricing already exists for this model and service', 409);
+  }
+
+  const pricing = await ServicePricing.create({
+    modelId: new mongoose.Types.ObjectId(input.modelId),
+    serviceId: new mongoose.Types.ObjectId(input.serviceId),
+    price: input.price,
+    discountedPrice: input.discountedPrice ?? null,
+  });
+
+  logger.info(`[CATALOG] Pricing created: model ${input.modelId} + service ${input.serviceId} = ₹${input.price}`);
+  return pricing;
+};
+
+export const listPricing = async (params: {
+  modelId?: string;
+  serviceId?: string;
+  includeInactive: boolean;
+}): Promise<IServicePricing[]> => {
+  const { modelId, serviceId, includeInactive } = params;
+
+  if (!modelId && !serviceId) {
+    throw createError('Provide modelId or serviceId to list pricing', 400);
+  }
+
+  const filter: Record<string, unknown> = {};
+  if (modelId) {
+    if (!mongoose.Types.ObjectId.isValid(modelId)) throw createError('Invalid model ID', 400);
+    filter.modelId = new mongoose.Types.ObjectId(modelId);
+  }
+  if (serviceId) {
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) throw createError('Invalid service ID', 400);
+    filter.serviceId = new mongoose.Types.ObjectId(serviceId);
+  }
+  if (!includeInactive) filter.isActive = true;
+
+  return ServicePricing.find(filter)
+    .populate('modelId', 'name')
+    .populate('serviceId', 'name')
+    .sort({ createdAt: -1 });
+};
+
+export const updatePricing = async (
+  pricingId: string,
+  updates: Partial<{ price: number; discountedPrice: number | null; isActive: boolean }>,
+): Promise<IServicePricing> => {
+  const existing = await ServicePricing.findById(pricingId);
+  if (!existing) throw createError('Pricing not found', 404);
+
+  // validate discount ≤ price (using new or existing price)
+  const finalPrice = updates.price ?? existing.price;
+  const finalDiscount = updates.discountedPrice !== undefined
+    ? updates.discountedPrice
+    : existing.discountedPrice;
+
+  if (finalDiscount != null && finalDiscount > finalPrice) {
+    throw createError('Discounted price cannot exceed price', 400);
+  }
+
+  const pricing = await ServicePricing.findByIdAndUpdate(
+    pricingId,
+    { $set: updates },
+    { new: true },
+  );
+  if (!pricing) throw createError('Pricing not found', 404);
+
+  logger.info(`[CATALOG] Pricing updated: ${pricingId}`);
+  return pricing;
 };
