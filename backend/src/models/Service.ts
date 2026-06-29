@@ -73,7 +73,6 @@ const ServiceSchema = new Schema<IService>(
 );
 
 // ── Indexes ───────────────────────────────────────
-ServiceSchema.index({ slug: 1 });
 ServiceSchema.index({ isActive: 1 });
 
 // ── Model ─────────────────────────────────────────

@@ -48,8 +48,6 @@ const RefreshTokenSchema = new Schema<IRefreshToken>(
 );
 
 // ── Indexes ───────────────────────────────────────
-RefreshTokenSchema.index({ userId: 1 });
-RefreshTokenSchema.index({ expiresAt: 1 });
 RefreshTokenSchema.index({ lastUsedAt: 1 });  // for inactive session cleanup
 
 // ── Model ─────────────────────────────────────────

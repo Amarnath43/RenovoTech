@@ -46,7 +46,6 @@ const BrandSchema = new Schema<IBrand>(
 );
 
 // ── Indexes ───────────────────────────────────────
-BrandSchema.index({ slug: 1 });
 BrandSchema.index({ isActive: 1, displayOrder: 1 });
 
 // ── Model ─────────────────────────────────────────
