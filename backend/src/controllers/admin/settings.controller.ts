@@ -15,7 +15,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   const settings = await Settings.findOneAndUpdate(
     {},
     { $set: req.body },
-    { new: true, runValidators: true },
+    { new: true, upsert:true, runValidators: true },
   ).select('-__v');
 
   if (!settings) throw createError('Settings not configured', 404);

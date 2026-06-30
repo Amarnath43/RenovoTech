@@ -307,6 +307,11 @@ export const submitEstimate = async (
     throw createError('Order not found, not assigned to you, or not in diagnosis_in_progress state', 409);
   }
 
+   if (!existing.beforePhotos || existing.beforePhotos.length === 0) {
+    throw createError('Upload before-photos before submitting an estimate', 400);
+  }
+
+
   // 2. build finalServices with VERIFIED prices
   const finalServices: FinalServices[] = [];
 

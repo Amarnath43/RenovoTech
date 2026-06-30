@@ -4,7 +4,7 @@ import rateLimit from 'express-rate-limit';
 // Max 3 OTP requests per phone per hour
 export const otpRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3,
+  max: 10,
   keyGenerator: (req) => req.body.phone,
   message: {
     success: false,
