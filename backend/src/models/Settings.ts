@@ -21,6 +21,7 @@ export interface ISettings extends Document {
   updatedAt: Date;
 
   orderSequence: number;
+  staleOrderHours: number;
 }
 
 // ── Schema ────────────────────────────────────────
@@ -85,6 +86,11 @@ const SettingsSchema = new Schema<ISettings>(
       type: Number,
       default: 0,
     },
+    staleOrderHours: {
+  type: Number,
+  default: 24,
+  min: 1,
+},
   },
   { timestamps: true }
 );

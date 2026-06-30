@@ -97,6 +97,7 @@ export const updateSettingsSchema = z
     ])).min(1).optional(),
     bookingFee: z.number().int().min(0).max(100000).optional(),
     bookingFeeEnabled: z.boolean().optional(),
+    staleOrderHours: z.number().int().min(1).max(168).optional(),
   })
   .refine((d) => Object.keys(d).length > 0, { message: 'No valid settings fields provided' })
   .refine(
