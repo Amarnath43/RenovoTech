@@ -11,7 +11,8 @@ import { DeviceModel } from '../models/DeviceModel.js';
 import {
   parseSlotMinutes,
   getISTNowMinutes,
-  isTodayIST
+  isTodayIST,
+  getTodayIST,
 } from '../utils/slotTime.js';
 import { FinalServices } from '../models/Order.js';
 import { CreateOrderBody } from '../validators/schemas.js';
@@ -50,12 +51,9 @@ export const createOrder = async (
     }).session(session).select('name');
     if (!deviceModel) throw createError('Device model not found', 400);
 
-    // 3. validate pickup date
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-
-    const pickup = new Date(input.pickupDate);
-    pickup.setUTCHours(0, 0, 0, 0);
+    // 3. validate pickup date (IST-aware — pickupDate is always YYYY-MM-DD)
+    const today = getTodayIST();
+    const pickup = new Date(input.pickupDate); // YYYY-MM-DD → midnight UTC
 
     if (pickup < today) {
       throw createError('Pickup date cannot be in the past', 400);

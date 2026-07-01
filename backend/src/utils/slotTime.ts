@@ -1,4 +1,5 @@
 const IST_OFFSET_MIN = 330; // UTC + 5:30
+const IST_OFFSET_MS = IST_OFFSET_MIN * 60 * 1000;
 
 /**
  * Parse a slot label like "2:00 PM" into minutes-from-midnight.
@@ -24,8 +25,18 @@ export const parseSlotMinutes = (slot: string): number => {
  * e.g. 4:00 PM IST -> 960
  */
 export const getISTNowMinutes = (): number => {
-  const ist = new Date(Date.now() + IST_OFFSET_MIN * 60 * 1000);
+  const ist = new Date(Date.now() + IST_OFFSET_MS);
   return ist.getUTCHours() * 60 + ist.getUTCMinutes();
+};
+
+/**
+ * Returns midnight UTC of the current IST calendar date.
+ * Use this for date-range validation so "today" means today in India,
+ * not today in UTC (which lags IST by 5h 30m).
+ */
+export const getTodayIST = (): Date => {
+  const ist = new Date(Date.now() + IST_OFFSET_MS);
+  return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()));
 };
 
 /**
@@ -33,8 +44,8 @@ export const getISTNowMinutes = (): number => {
  * Compares the IST calendar day of `date` against the IST calendar day now.
  */
 export const isTodayIST = (date: Date): boolean => {
-  const istNow = new Date(Date.now() + IST_OFFSET_MIN * 60 * 1000);
-  const istTarget = new Date(date.getTime() + IST_OFFSET_MIN * 60 * 1000);
+  const istNow = new Date(Date.now() + IST_OFFSET_MS);
+  const istTarget = new Date(date.getTime() + IST_OFFSET_MS);
 
   return (
     istNow.getUTCFullYear() === istTarget.getUTCFullYear() &&
