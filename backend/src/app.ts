@@ -13,7 +13,12 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { notificationQueue } from './queues/notification.queue.js';
-import './queues/notification.worker.js';  // start worker
+import './workers/notification.worker.js';
+import './workers/autoCancel.worker.js';
+import './workers/pickupReminder.worker.js';
+import { scheduleRepeatJobs } from './jobs/scheduleRepeatJobs.js';
+import { autoCancelQueue } from './queues/autoCancel.queue.js';
+import { pickupReminderQueue } from './queues/pickupReminder.queue.js';
 
 // ── Routes ────────────────────────────────────────
 import authRoutes from './routes/auth.routes.js';
@@ -24,9 +29,7 @@ import orderRoutes          from './routes/order.routes.js';
 import adminRoutes from './routes/admin/index.js';
 import technicianRoutes from './routes/technician.routes.js'
 
-// ── Cron Jobs ─────────────────────────────────────
-// import './jobs/estimateExpiry.job.js';
-// import './jobs/pickupReminder.job.js';
+
 
 dotenv.config();
 
@@ -62,7 +65,10 @@ const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/admin/queues');
 
 createBullBoard({
-  queues: [new BullMQAdapter(notificationQueue)],
+  queues: [new BullMQAdapter(notificationQueue),
+     new BullMQAdapter(autoCancelQueue),
+    new BullMQAdapter(pickupReminderQueue)
+  ],
   serverAdapter,
 });
 
@@ -77,11 +83,6 @@ app.use('/api/v1/orders',          orderRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/technician', technicianRoutes);
 
-// app.use('/api/v1/admin/orders',    adminOrderRoutes);
-// app.use('/api/v1/admin/brands',    adminBrandRoutes);
-// app.use('/api/v1/admin/settings',  adminSettingsRoutes);
-// app.use('/api/v1/admin/customers', adminCustomerRoutes);
-// app.use('/api/v1/tech',            techRoutes);
 
 // ── 404 Handler ───────────────────────────────────
 app.use('*path', (_, res) => {
@@ -94,10 +95,11 @@ app.use(errorHandler);
 // ── Start Server ──────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(() => {
+connectDB().then(async() => {
   app.listen(PORT, () => {
     logger.info(`RenovoTech API running on port ${PORT} [${process.env.NODE_ENV}]`);
   });
+  await scheduleRepeatJobs();
 });
 
 export default app;
