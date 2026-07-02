@@ -1,7 +1,7 @@
 import { Order } from '../../../models/Order.js';
 import { User } from '../../../models/User.js';
 import { asyncHandler } from '../../../utils/asyncHandler.js';
-import {createError} from "../../../utils/errorHandler.js";
+import { parseDateRangeFilter } from '../../../utils/dateRangeFilter.js';
 
 // ── Overview (Dashboard Summary) ──────────────────
 export const getOverview = asyncHandler(async (req, res) => {
@@ -60,24 +60,8 @@ export const getRevenue = asyncHandler(async (req, res) => {
 
   const match: Record<string, unknown> = { status: 'completed', completedAt: { $ne: null }, };
 
-
-  if (startDate || endDate) {
- const dateFilter: Record<string, unknown> = { $ne: null };
- 
-    if (startDate) {
-      const start = new Date(startDate);
-       if (isNaN(start.getTime())) throw createError('Invalid startDate', 400);
-      start.setUTCHours(0, 0, 0, 0);
-      dateFilter.$gte = start;
-    }
-    if (endDate) {
-      const end = new Date(endDate);
-       if (isNaN(end.getTime())) throw createError('Invalid endDate', 400);
-      end.setUTCHours(23, 59, 59, 999);
-      dateFilter.$lte = end;
-    }
-    match.completedAt = dateFilter;
-  }
+  const dateFilter = parseDateRangeFilter(startDate, endDate);
+  if (dateFilter) match.completedAt = { $ne: null, ...dateFilter };
 
   const [summary, daily] = await Promise.all([
     Order.aggregate([

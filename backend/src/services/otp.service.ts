@@ -130,11 +130,7 @@ export const sendOTP = async (
 
     // 7. send SMS
     if (process.env.NODE_ENV === 'production') {
-      // await twilioClient.messages.create({
-      //   body: `Your RenovoTech OTP is ${otp}. Valid for 10 minutes. Do not share with anyone.`,
-      //   from: process.env.TWILIO_PHONE_NUMBER,
-      //   to:   `+91${phone}`,
-      // });
+      // Twilio not yet wired up — production currently only logs, no SMS is actually sent.
       logger.info(`[OTP] Sent to ${maskPhone(phone)} from IP ${ipAddress}`);
     } else {
       logger.info(`[OTP] DEV mode — OTP for ${maskPhone(phone)}: ${otp}`);

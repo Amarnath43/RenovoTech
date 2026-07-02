@@ -82,10 +82,6 @@ export const getSeriesByBrand = asyncHandler(async (req, res) => {
 export const getModelPricing = asyncHandler(async (req, res) => {
   const modelId = req.params.modelId as string;
 
-  if (!mongoose.Types.ObjectId.isValid(modelId)) {
-    throw createError('Invalid model ID', 400);
-  }
-
   const model = await DeviceModel.findOne({ _id: modelId, isActive: true });
   if (!model) throw createError('Model not found', 404);
 

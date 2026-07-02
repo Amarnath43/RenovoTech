@@ -1,16 +1,12 @@
 import {Queue} from 'bullmq'
 import { NotificationEvent } from '../models/Notification.js';
+import { redisConnection as connection } from '../config/redisConnection.js';
 
 export interface NotificationJobData{
     orderId:string,
     event: NotificationEvent,
     data:Record<string, string>
 }
-const connection = {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: Number(process.env.REDIS_PORT) || 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
-};
 
 export const notificationQueue=new Queue<NotificationJobData>(
     'notifications',

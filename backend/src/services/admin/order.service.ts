@@ -6,6 +6,8 @@ import { createError } from '../../utils/errorHandler.js';
 import { canAdminTransition } from '../../utils/orderTransitions.js';
 import { notificationQueue } from '../../queues/notification.queue.js';
 import { NotificationEvent } from '../../models/Notification.js';
+import { buildStatusHistoryEntry } from '../../utils/statusHistory.js';
+import { parseDateRangeFilter } from '../../utils/dateRangeFilter.js';
 
 const STATUS_EVENTS: Partial<Record<OrderStatus, NotificationEvent>> = {
     pickup_scheduled: 'pickup_scheduled',
@@ -29,22 +31,8 @@ export const getAllOrders = async (params: {
 
     if (status) filter.status = status;
 
-    if (startDate || endDate) {
-        const dateFilter: Record<string, Date> = {};
-        if (startDate) {
-            const start = new Date(startDate);
-            if (isNaN(start.getTime())) throw createError('Invalid startDate', 400);
-            start.setUTCHours(0, 0, 0, 0);
-            dateFilter.$gte = start;
-        }
-        if (endDate) {
-            const end = new Date(endDate);
-            if (isNaN(end.getTime())) throw createError('Invalid endDate', 400);
-            end.setUTCHours(23, 59, 59, 999);
-            dateFilter.$lte = end;
-        }
-        filter.createdAt = dateFilter;
-    }
+    const dateFilter = parseDateRangeFilter(startDate, endDate);
+    if (dateFilter) filter.createdAt = dateFilter;
 
     // cursor: fetch orders with _id < cursor (newest first)
     if (cursor) {
@@ -115,12 +103,9 @@ export const adminUpdateStatus = async (params: {
         }
 
         order.set(updates);
-        order.statusHistory.push({
-            status: newStatus,
-            updatedBy: new mongoose.Types.ObjectId(adminId),
-            note: note || `Status changed to ${newStatus} by admin`,
-            timestamp: new Date(),
-        });
+        order.statusHistory.push(
+            buildStatusHistoryEntry(newStatus, adminId, note || `Status changed to ${newStatus} by admin`),
+        );
 
         await order.save({ session });
         await session.commitTransaction();
@@ -174,12 +159,11 @@ export const adminAssignTechnician = async (params: {
                 technicianId: new mongoose.Types.ObjectId(technicianId),
             },
             $push: {
-                statusHistory: {
-                    status: 'technician_assigned',
-                    updatedBy: new mongoose.Types.ObjectId(adminId),
-                    note: 'Technician assigned by admin',
-                    timestamp: new Date(),
-                },
+                statusHistory: buildStatusHistoryEntry(
+                    'technician_assigned',
+                    adminId,
+                    'Technician assigned by admin',
+                ),
             },
         },
         { new: true },

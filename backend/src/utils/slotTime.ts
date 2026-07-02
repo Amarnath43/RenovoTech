@@ -53,3 +53,24 @@ export const isTodayIST = (date: Date): boolean => {
     istNow.getUTCDate() === istTarget.getUTCDate()
   );
 };
+
+/**
+ * UTC range covering tomorrow's IST calendar date, as [start, end).
+ * Matches how date fields like pickupDate are stored: UTC midnight of the date string.
+ */
+export const getTomorrowISTRange = (): { start: Date; end: Date } => {
+  const today = getTodayIST();
+  const start = new Date(today);
+  start.setUTCDate(start.getUTCDate() + 1);
+  const end = new Date(today);
+  end.setUTCDate(end.getUTCDate() + 2);
+
+  return { start, end };
+};
+
+export const nowISTString = (): string => {
+  return new Date().toLocaleString('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    hour12: false,
+  });
+};

@@ -16,6 +16,7 @@ import {
 } from '../utils/slotTime.js';
 import { FinalServices } from '../models/Order.js';
 import { CreateOrderBody } from '../validators/schemas.js';
+import { buildStatusHistoryEntry } from '../utils/statusHistory.js';
 
 
 interface UpdateStatusInput {
@@ -168,12 +169,9 @@ export const createOrder = async (
         estimatedAmount,
         bookingFee,
         status: 'booked',
-        statusHistory: [{
-          status: 'booked',
-          updatedBy: new mongoose.Types.ObjectId(input.customerId),
-          note: 'Order placed by customer',
-          timestamp: new Date(),
-        }],
+        statusHistory: [
+          buildStatusHistoryEntry('booked', input.customerId, 'Order placed by customer'),
+        ],
       }],
       { session }
     );
@@ -218,12 +216,9 @@ export const updateOrderStatus = async (
 
     // update status + push to history atomically
     order.status = input.status;
-    order.statusHistory.push({
-      status: input.status,
-      updatedBy: new mongoose.Types.ObjectId(input.updatedBy),
-      note: input.note || '',
-      timestamp: new Date(),
-    });
+    order.statusHistory.push(
+      buildStatusHistoryEntry(input.status, input.updatedBy, input.note || ''),
+    );
 
     await order.save({ session });
     await session.commitTransaction();
@@ -259,12 +254,11 @@ export const assignTechnician = async (
         technicianId: new mongoose.Types.ObjectId(technicianId),
       },
       $push: {
-        statusHistory: {
-          status: 'technician_assigned',
-          updatedBy: new mongoose.Types.ObjectId(adminId),
-          note: 'Technician assigned by admin',
-          timestamp: new Date(),
-        },
+        statusHistory: buildStatusHistoryEntry(
+          'technician_assigned',
+          adminId,
+          'Technician assigned by admin',
+        ),
       },
     },
     {
@@ -358,12 +352,11 @@ export const submitEstimate = async (
         status: 'estimate_sent',
       },
       $push: {
-        statusHistory: {
-          status: 'estimate_sent',
-          updatedBy: new mongoose.Types.ObjectId(technicianId),
-          note: `Estimate submitted: ₹${amount}`,
-          timestamp: new Date(),
-        },
+        statusHistory: buildStatusHistoryEntry(
+          'estimate_sent',
+          technicianId,
+          `Estimate submitted: ₹${amount}`,
+        ),
       },
     },
     { new: true },
@@ -414,12 +407,11 @@ export const respondToEstimate = async (
         status: newStatus,
       },
       $push: {
-        statusHistory: {
-          status: newStatus,
-          updatedBy: new mongoose.Types.ObjectId(customerId),
-          note: `Customer ${action} the estimate`,
-          timestamp: new Date(),
-        },
+        statusHistory: buildStatusHistoryEntry(
+          newStatus,
+          customerId,
+          `Customer ${action} the estimate`,
+        ),
       },
     },
     { new: true },
@@ -457,12 +449,11 @@ export const startDiagnosis = async (
         status: 'diagnosis_in_progress'
       },
       $push: {
-        statusHistory: {
-          status: 'diagnosis_in_progress',
-          updatedBy: new mongoose.Types.ObjectId(technicianId),
-          note: 'Diagnosis started',
-          timestamp: new Date(),
-        },
+        statusHistory: buildStatusHistoryEntry(
+          'diagnosis_in_progress',
+          technicianId,
+          'Diagnosis started',
+        ),
       },
     },
     { new: true },
@@ -494,12 +485,11 @@ export const startRepair = async (
     {
       $set: { status: 'repair_in_progress' },
       $push: {
-        statusHistory: {
-          status: 'repair_in_progress',
-          updatedBy: new mongoose.Types.ObjectId(technicianId),
-          note: 'Repair started',
-          timestamp: new Date(),
-        },
+        statusHistory: buildStatusHistoryEntry(
+          'repair_in_progress',
+          technicianId,
+          'Repair started',
+        ),
       },
     },
     { new: true },
@@ -532,12 +522,11 @@ export const completeRepair = async (
     {
       $set: { status: 'ready_for_drop' },
       $push: {
-        statusHistory: {
-          status: 'ready_for_drop',
-          updatedBy: new mongoose.Types.ObjectId(technicianId),
-          note: note || 'Repair completed, ready for drop',
-          timestamp: new Date(),
-        },
+        statusHistory: buildStatusHistoryEntry(
+          'ready_for_drop',
+          technicianId,
+          note || 'Repair completed, ready for drop',
+        ),
       },
     },
     { new: true },

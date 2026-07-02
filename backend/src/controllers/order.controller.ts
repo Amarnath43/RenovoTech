@@ -5,6 +5,7 @@ import {
 } from '../services/order.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createError } from '../utils/errorHandler.js';
+import { parsePagination } from '../utils/pagination.js';
 
 // ── Create Order ──────────────────────────────────
 export const create = asyncHandler(async (req, res) => {
@@ -46,9 +47,7 @@ export const getMyOrders = asyncHandler(async (req, res) => {
     const customerId = req.user?.id;
     if (!customerId) throw createError('Not authenticated', 401);
 
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(50, parseInt(req.query.limit as string) || 10);
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
     const status = req.query.status as string | undefined;
 
     const filter: Record<string, unknown> = { customerId };

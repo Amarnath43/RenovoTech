@@ -3,28 +3,9 @@ import { Order } from '../models/Order.js';
 import { notificationQueue } from '../queues/notification.queue.js';
 import { logger } from '../utils/logger.js';
 import type { PickupReminderJobData } from '../queues/pickupReminder.queue.js';
-
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number(process.env.REDIS_PORT) || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-};
-
-const IST_OFFSET_MS = 330 * 60 * 1000;
-
-// tomorrow's IST calendar date, expressed as a UTC range
-// (matches how pickupDate is stored: UTC midnight of the date string)
-const getTomorrowISTRange = (): { start: Date; end: Date } => {
-  const istNow = new Date(Date.now() + IST_OFFSET_MS);
-  const y = istNow.getUTCFullYear();
-  const m = istNow.getUTCMonth();
-  const d = istNow.getUTCDate();
-
-  const start = new Date(Date.UTC(y, m, d + 1)); // tomorrow, UTC midnight
-  const end   = new Date(Date.UTC(y, m, d + 2)); // day after (exclusive upper bound)
-
-  return { start, end };
-};
+import { redisConnection as connection } from '../config/redisConnection.js';
+import { getTomorrowISTRange } from '../utils/slotTime.js';
+import { attachWorkerLifecycle } from '../utils/workerLifecycle.js';
 
 export const pickupReminderWorker = new Worker<PickupReminderJobData>(
   'pickup-reminders',
@@ -62,18 +43,4 @@ export const pickupReminderWorker = new Worker<PickupReminderJobData>(
   { connection, concurrency: 1 }
 );
 
-pickupReminderWorker.on('completed', (job) => {
-  logger.info(`[WORKER] Pickup reminder completed — job: ${job.id}`);
-});
-
-pickupReminderWorker.on('failed', (job, err) => {
-  logger.error(`[WORKER] Pickup reminder failed — job: ${job?.id}: ${err}`);
-});
-
-pickupReminderWorker.on('error', (err) => {
-  logger.error(`[WORKER] Pickup reminder error: ${err}`);
-});
-
-process.on('SIGTERM', async () => {
-  await pickupReminderWorker.close();
-});
+attachWorkerLifecycle(pickupReminderWorker, 'Pickup reminder');

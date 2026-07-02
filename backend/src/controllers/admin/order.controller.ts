@@ -1,5 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { createError } from '../../utils/errorHandler.js';
+import { parseLimit } from '../../utils/pagination.js';
 import { OrderStatus } from '../../models/Order.js';
 import {
   getAllOrders,
@@ -10,7 +11,7 @@ import {
 
 // ── Get All Orders (Cursor + Filters) ─────────────
 export const listOrders = asyncHandler(async (req, res) => {
-  const limit  = Math.min(50, parseInt(req.query.limit as string) || 20);
+  const limit  = parseLimit(req.query.limit, { defaultLimit: 20, maxLimit: 50 });
   const cursor = req.query.cursor as string | undefined;
   const status = req.query.status as OrderStatus | undefined;
   const startDate = req.query.startDate as string | undefined;

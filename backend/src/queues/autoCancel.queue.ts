@@ -1,14 +1,9 @@
 import { Queue } from 'bullmq';
+import { redisConnection as connection } from '../config/redisConnection.js';
 
 export interface AutoCancelJobData {
   triggeredAt: string;
 }
-
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number(process.env.REDIS_PORT) || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-};
 
 export const autoCancelQueue = new Queue<AutoCancelJobData>(
   'auto-cancel-orders',

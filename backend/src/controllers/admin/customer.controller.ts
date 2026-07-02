@@ -3,12 +3,11 @@ import { User } from '../../models/User.js';
 import { Order } from '../../models/Order.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { createError }  from '../../utils/errorHandler.js';
+import { parsePagination } from '../../utils/pagination.js';
 
 // ── Get All Customers (Paginated + Search) ────────
 export const getCustomers = asyncHandler(async (req, res) => {
-  const page   = Math.max(1, parseInt(req.query.page as string) || 1);
-  const limit  = Math.min(50, parseInt(req.query.limit as string) || 20);
-  const skip   = (page - 1) * limit;
+  const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
   const search = (req.query.search as string)?.trim();
 
   const filter: Record<string, unknown> = { role: 'customer' };
@@ -49,10 +48,6 @@ export const getCustomers = asyncHandler(async (req, res) => {
 export const getCustomer = asyncHandler(async (req, res) => {
   const customerId = req.params.customerId as string;
 
-  if (!mongoose.Types.ObjectId.isValid(customerId)) {
-    throw createError('Invalid customer ID', 400);
-  }
-
   const customer = await User
     .findOne({ _id: customerId, role: 'customer' })
     .select('-__v');
@@ -74,10 +69,6 @@ export const getCustomer = asyncHandler(async (req, res) => {
 export const updateCustomer = asyncHandler(async (req, res) => {
   const customerId = req.params.customerId as string;
 
-  if (!mongoose.Types.ObjectId.isValid(customerId)) {
-    throw createError('Invalid customer ID', 400);
-  }
-  
   const customer = await User.findOneAndUpdate(
     { _id: customerId, role: 'customer' },
     { $set: req.body },
@@ -97,13 +88,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
 export const getCustomerOrders = asyncHandler(async (req, res) => {
   const customerId = req.params.customerId as string;
 
-  if (!mongoose.Types.ObjectId.isValid(customerId)) {
-    throw createError('Invalid customer ID', 400);
-  }
-
-  const page  = Math.max(1, parseInt(req.query.page as string) || 1);
-  const limit = Math.min(50, parseInt(req.query.limit as string) || 10);
-  const skip  = (page - 1) * limit;
+  const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
 
   const filter = { customerId: new mongoose.Types.ObjectId(customerId) };
 
